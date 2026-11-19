@@ -5,6 +5,7 @@ import { Icon } from "../components/icons";
 import { usePrefs } from "../ui/prefs";
 import { sfx } from "../ui/sfx";
 import { SHORTS, fmtTime, shortDuration, type Actor, type Scene, type ShortId } from "./shortsData";
+import { partOf, speakLine, stopVoice } from "./voice";
 
 /**
  * 學習小短片播放器：以遊戲同款分層角色即時演出（非影片檔），
@@ -198,9 +199,11 @@ export function ShortPlayer({ id, onClose }: { id: ShortId; onClose: () => void 
   const { reduced, prefs } = usePrefs();
   const [t, setT] = useState(0);
   const [playing, setPlaying] = useState(true);
-  const [narrate, setNarrate] = useState(false);
+  // 人聲預設開啟（有音效且裝置支援語音時）
+  const [narrate, setNarrate] = useState(() => prefs.sound && "speechSynthesis" in window);
   const last = useRef(performance.now());
   const spoken = useRef("");
+  const speaking = useRef(false);
   const starts = useMemo(() => {
     let acc = 0;
     return short.scenes.map((s) => {
@@ -209,6 +212,15 @@ export function ShortPlayer({ id, onClose }: { id: ShortId; onClose: () => void 
       return st;
     });
   }, [short]);
+  // 時間軸上的「台詞開始」與「場景結束」：說話中不越過下一個點，讓畫面等人聲說完
+  const marks = useMemo(() => {
+    const m: number[] = [];
+    short.scenes.forEach((sc, i) => {
+      sc.captions.forEach((c) => c.at > 0 && m.push(starts[i] + c.at));
+      m.push(starts[i] + sc.dur);
+    });
+    return m.sort((x, y) => x - y);
+  }, [short, starts]);
 
   // 播放迴圈
   useEffect(() => {
@@ -216,10 +228,14 @@ export function ShortPlayer({ id, onClose }: { id: ShortId; onClose: () => void 
     let raf = 0;
     last.current = performance.now();
     const step = (now: number) => {
-      const dt = (now - last.current) / 1000;
+      const dt = Math.min(0.1, (now - last.current) / 1000);
       last.current = now;
       setT((v) => {
-        const nv = Math.min(total, v + dt);
+        let nv = Math.min(total, v + dt);
+        if (speaking.current) {
+          const next = marks.find((m) => m > v + 0.0005);
+          if (next !== undefined && nv >= next) nv = next - 0.001;
+        }
         if (nv >= total) setPlaying(false);
         return nv;
       });
@@ -227,15 +243,16 @@ export function ShortPlayer({ id, onClose }: { id: ShortId; onClose: () => void 
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [playing, total]);
+  }, [playing, total, marks]);
 
-  // 輕快背景音樂
+  // 輕快背景音樂（短片專用主題），關閉時換回遊戲音樂
   useEffect(() => {
-    sfx.setTempo(118);
+    sfx.setStyle("lively");
     sfx.startMusic();
     return () => {
-      sfx.setTempo(88);
-      window.speechSynthesis?.cancel();
+      stopVoice();
+      sfx.duck(false);
+      sfx.setStyle("calm");
     };
   }, []);
   useEffect(() => {
@@ -254,6 +271,14 @@ export function ShortPlayer({ id, onClose }: { id: ShortId; onClose: () => void 
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, [onClose]);
+  // 暫停：停止人聲，繼續時重唸目前台詞
+  useEffect(() => {
+    if (playing) return;
+    stopVoice();
+    speaking.current = false;
+    sfx.duck(false);
+    spoken.current = "";
+  }, [playing]);
 
   let si = starts.findIndex((st, i) => t >= st && t < st + short.scenes[i].dur);
   if (si < 0) si = short.scenes.length - 1;
@@ -262,7 +287,16 @@ export function ShortPlayer({ id, onClose }: { id: ShortId; onClose: () => void 
   const cap = [...scene.captions].reverse().find((c) => lt >= c.at);
   const ended = t >= total;
 
-  // 場景切換音效與旁白朗讀
+  function seek(to: number) {
+    stopVoice();
+    speaking.current = false;
+    sfx.duck(false);
+    spoken.current = "";
+    setT(to);
+    setPlaying(true);
+  }
+
+  // 場景切換音效與人聲
   const prevScene = useRef(si);
   useEffect(() => {
     if (prevScene.current !== si) sfx.play("page");
@@ -273,19 +307,13 @@ export function ShortPlayer({ id, onClose }: { id: ShortId; onClose: () => void 
     const k = `${si}-${cap.at}`;
     if (spoken.current === k) return;
     spoken.current = k;
-    try {
-      const synth = window.speechSynthesis;
-      synth.cancel();
-      const u = new SpeechSynthesisUtterance(cap.text.replace(/（.*?）/g, ""));
-      u.lang = "zh-TW";
-      u.rate = 1.05;
-      u.pitch = cap.who === "林老師" || cap.who === "旁白" ? 1 : 1.25;
-      const v = synth.getVoices().find((x) => x.lang.replace("_", "-").startsWith("zh-TW"));
-      if (v) u.voice = v;
-      synth.speak(u);
-    } catch {
-      /* 不支援朗讀時只顯示字幕 */
-    }
+    speaking.current = true;
+    sfx.duck(true);
+    speakLine(cap.text, partOf(cap.look, cap.who), () => {
+      if (spoken.current !== k) return;
+      speaking.current = false;
+      sfx.duck(false);
+    });
   }, [cap, narrate, playing, si]);
   useEffect(() => {
     if (ended) sfx.play("complete");
@@ -328,9 +356,7 @@ export function ShortPlayer({ id, onClose }: { id: ShortId; onClose: () => void 
                   className="btn btn-soft"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setT(0);
-                    spoken.current = "";
-                    setPlaying(true);
+                    seek(0);
                   }}
                 >
                   <Icon name="reset" /> 再看一次
@@ -349,7 +375,7 @@ export function ShortPlayer({ id, onClose }: { id: ShortId; onClose: () => void 
           )}
         </div>
         <div className="short-controls">
-          <button className="icon-btn" aria-label={playing ? "暫停" : "播放"} onClick={() => (ended ? (setT(0), setPlaying(true)) : setPlaying((p) => !p))}>
+          <button className="icon-btn" aria-label={playing ? "暫停" : "播放"} onClick={() => (ended ? seek(0) : setPlaying((p) => !p))}>
             <Icon name={playing ? "pause" : "play"} />
           </button>
           <div className="short-bar" role="group" aria-label="段落">
@@ -359,11 +385,7 @@ export function ShortPlayer({ id, onClose }: { id: ShortId; onClose: () => void 
                 className={`short-seg ${i < si ? "done" : i === si ? "now" : ""}`}
                 style={{ flex: sc.dur }}
                 aria-label={`跳到第 ${i + 1} 段${sc.banner ? `：${sc.banner}` : ""}`}
-                onClick={() => {
-                  setT(starts[i]);
-                  spoken.current = "";
-                  setPlaying(true);
-                }}
+                onClick={() => seek(starts[i])}
               >
                 {i === si && <i style={{ width: `${(lt / sc.dur) * 100}%` }} />}
               </button>
@@ -376,13 +398,17 @@ export function ShortPlayer({ id, onClose }: { id: ShortId; onClose: () => void 
             className={`chip ${narrate ? "is-ok" : ""}`}
             aria-pressed={narrate}
             onClick={() => {
-              setNarrate((n) => !n);
+              if (narrate) {
+                stopVoice();
+                speaking.current = false;
+                sfx.duck(false);
+              }
               spoken.current = "";
-              if (narrate) window.speechSynthesis?.cancel();
+              setNarrate((n) => !n);
             }}
             disabled={!("speechSynthesis" in window) || !prefs.sound}
           >
-            <Icon name="sound" size={18} /> 朗讀
+            <Icon name={narrate ? "sound" : "mute"} size={18} /> 人聲
           </button>
         </div>
       </div>

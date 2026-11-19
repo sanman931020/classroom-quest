@@ -172,9 +172,9 @@ test("班會小百科有平票處理，平面模式與兩種平板比例", async
   await expect(page.getByText("再討論、再表決")).toBeVisible();
   await page.screenshot({ path: "test-results/08-handbook.png" });
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "設定" }).click();
-  await page.getByRole("button", { name: "平面" }).click();
-  await page.keyboard.press("Escape");
+  // 平面模式（設定在遊戲中的暫停選單；這裡直接寫入偏好）
+  await page.evaluate(() => localStorage.setItem("classroom-quest-ui-v1", JSON.stringify({ zhuyin: false, view: "2d" })));
+  await page.reload();
   await start(page);
   await expect(page.locator("svg.classroom")).toBeVisible();
   for (const [width, height] of [

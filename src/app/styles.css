@@ -726,3 +726,12 @@ input.is-empty:focus, textarea.is-empty:focus { animation: none; }
   border: 2px dashed var(--c-coral); background: var(--c-coral-light); color: var(--c-coral-deep); font-weight: 800; width: 100%;
 }
 .home-menu > .btn-soft { justify-content: center; }
+
+/* 首頁右上角快捷按鈕：聲音、說明、小百科 */
+.home-corner { position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); z-index: 40; display: flex; gap: 8px; }
+.corner-btn {
+  display: grid; justify-items: center; gap: 0; min-width: 64px; min-height: 60px; padding: 6px 8px; border-radius: var(--r-lg);
+  border: 2px solid var(--c-paper-edge); background: rgba(255, 252, 245, 0.95); color: var(--c-forest); font-weight: 700; font-size: 0.82rem;
+  box-shadow: var(--sh-paper-2);
+}
+.corner-btn[aria-pressed="false"] { color: var(--c-ink-faint); }

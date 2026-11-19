@@ -354,6 +354,20 @@ function Home({
         <MeetingScene mode="menu" camera="menu" slice positions={s.positions} cast={cast} messy classLabel={displayClass(ext)} ariaLabel={`${displayClass(ext)}教室，點角色可以聽他們說話`} />
         <div className="scene-paper" aria-hidden="true" />
       </div>
+      <div className="home-corner" role="toolbar" aria-label="快捷按鈕">
+        <button className="corner-btn" aria-label={prefs.sound ? "關閉聲音" : "開啟聲音"} aria-pressed={prefs.sound} onClick={() => setPrefs((p) => ({ ...p, sound: !p.sound }))}>
+          <Icon name={prefs.sound ? "sound" : "mute"} />
+          <span>{prefs.sound ? "聲音開" : "聲音關"}</span>
+        </button>
+        <button className="corner-btn" aria-label="操作說明" onClick={() => open("help")}>
+          <Icon name="help" />
+          <span>說明</span>
+        </button>
+        <button className="corner-btn" aria-label="班會小百科" onClick={() => open("handbook")}>
+          <Icon name="note" />
+          <span>小百科</span>
+        </button>
+      </div>
       <div className="home-panel">
         <div className="logo">
           <span className="logo-ribbon">三上社會・快樂的班級生活</span>
@@ -436,20 +450,7 @@ function Home({
             <Icon name="teacher" /> 教師入口
           </button>
         </nav>
-        <p className="small muted privacy">班級和名字只存在這台裝置，不會上傳。</p>
         <div className="home-tools">
-          <button className="icon-btn" aria-label={prefs.sound ? "關閉音效" : "開啟音效"} aria-pressed={prefs.sound} onClick={() => setPrefs((p) => ({ ...p, sound: !p.sound }))}>
-            <Icon name={prefs.sound ? "sound" : "mute"} />
-          </button>
-          <button className="icon-btn" aria-label="設定" onClick={() => open("settings")}>
-            <Icon name="gear" />
-          </button>
-          <button className="icon-btn" aria-label="操作說明" onClick={() => open("help")}>
-            <Icon name="help" />
-          </button>
-          <button className="icon-btn" aria-label="班會小百科" onClick={() => open("handbook")}>
-            <Icon name="note" />
-          </button>
           <span className="home-status">
             {s.meeting.done ? (
               <>

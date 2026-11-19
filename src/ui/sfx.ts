@@ -57,6 +57,9 @@ class Audio {
   private step = 0;
   private playing = false;
   private bpm = 88;
+  private style: "calm" | "lively" = "calm";
+  private noise: AudioBuffer | null = null;
+  private ducked = false;
 
   /** 調整背景音樂速度（短片時較輕快） */
   setTempo(bpm: number) {
@@ -72,7 +75,7 @@ class Audio {
   }
 
   private musicLevel() {
-    return this.volume * 0.16;
+    return this.volume * (this.style === "lively" ? 0.2 : 0.16) * (this.ducked ? 0.35 : 1);
   }
 
   private context() {
@@ -179,6 +182,26 @@ class Audio {
     [43, 50, 59],
   ];
 
+  /**
+   * 切換音樂風格：calm＝遊戲中的音樂盒；lively＝短片用的輕快主題（含鼓組）。
+   * 正在播放時會無縫重新開始新的風格。
+   */
+  setStyle(style: "calm" | "lively") {
+    if (this.style === style) return;
+    this.style = style;
+    this.bpm = style === "lively" ? 128 : 88;
+    if (this.playing) {
+      this.stopMusic(true);
+      this.startMusic();
+    }
+  }
+
+  /** 人聲說話時壓低音樂 */
+  duck(on: boolean) {
+    this.ducked = on;
+    if (this.musicGain && this.ctx) this.musicGain.gain.setTargetAtTime(this.musicLevel(), this.ctx.currentTime, 0.15);
+  }
+
   startMusic() {
     if (this.playing || !this.enabled || !this.musicOn || this.volume <= 0) return;
     try {
@@ -194,6 +217,14 @@ class Audio {
       const tick = () => {
         if (!this.ctx || !this.musicGain) return;
         const eighth = 60 / this.bpm / 2;
+        if (this.style === "lively") {
+          while (this.nextTime < this.ctx.currentTime + 0.4) {
+            this.livelyStep(this.step, this.nextTime, eighth);
+            this.nextTime += eighth;
+            this.step++;
+          }
+          return;
+        }
         while (this.nextTime < this.ctx.currentTime + 0.4) {
           const bar = Math.floor(this.step / 8) % this.melody.length;
           const pos = this.step % 8;
@@ -210,6 +241,120 @@ class Audio {
     } catch {
       this.playing = false;
     }
+  }
+
+  /* ---------------- 輕快主題（短片）：F 大調，I–V–vi–IV ---------------- */
+  private lively = [
+    [77, 0, 77, 81, 84, 0, 81, 0],
+    [79, 0, 76, 79, 81, 79, 77, 0],
+    [74, 0, 77, 81, 84, 0, 86, 84],
+    [82, 0, 81, 0, 79, 0, 0, 0],
+    [77, 81, 84, 81, 77, 0, 79, 81],
+    [79, 0, 76, 0, 72, 74, 76, 79],
+    [81, 0, 77, 0, 74, 77, 81, 84],
+    [82, 81, 79, 0, 77, 0, 0, 0],
+  ];
+  private livelyBass = [41, 48, 50, 46, 41, 48, 50, 46];
+
+  private livelyStep(step: number, t: number, eighth: number) {
+    const bar = Math.floor(step / 8) % this.lively.length;
+    const pos = step % 8;
+    const n = this.lively[bar][pos];
+    if (n) this.pluck(midi(n), t, eighth * 1.6);
+    // 跳躍貝斯：每拍一下，八度交替
+    if (pos % 2 === 0) this.bass(midi(this.livelyBass[bar] + (pos % 4 === 2 ? 12 : 0)), t, eighth * 1.6);
+    // 鼓組：大鼓 1、3 拍，拍手 2、4 拍，反拍小鈸
+    if (pos === 0 || pos === 4) this.kick(t);
+    if (pos === 2 || pos === 6) this.clap(t);
+    if (pos % 2 === 1) this.hat(t);
+  }
+
+  private noiseBuf() {
+    if (!this.noise && this.ctx) {
+      const len = this.ctx.sampleRate * 0.3;
+      const b = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const d = b.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      this.noise = b;
+    }
+    return this.noise!;
+  }
+
+  private pluck(f: number, t: number, d: number) {
+    const ctx = this.ctx!;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "square";
+    o.frequency.value = f;
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(3200, t);
+    lp.frequency.exponentialRampToValueAtTime(900, t + d);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.16, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(lp).connect(g).connect(this.musicGain!);
+    o.start(t);
+    o.stop(t + d + 0.02);
+  }
+
+  private bass(f: number, t: number, d: number) {
+    const ctx = this.ctx!;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "triangle";
+    o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.45, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(g).connect(this.musicGain!);
+    o.start(t);
+    o.stop(t + d + 0.02);
+  }
+
+  private kick(t: number) {
+    const ctx = this.ctx!;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.frequency.setValueAtTime(140, t);
+    o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+    g.gain.setValueAtTime(0.6, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+    o.connect(g).connect(this.musicGain!);
+    o.start(t);
+    o.stop(t + 0.2);
+  }
+
+  private clap(t: number) {
+    const ctx = this.ctx!;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuf();
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 1500;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.35, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+    src.connect(bp).connect(g).connect(this.musicGain!);
+    src.start(t);
+    src.stop(t + 0.16);
+  }
+
+  private hat(t: number) {
+    const ctx = this.ctx!;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuf();
+    const hp = ctx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = 7000;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.12, t + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+    src.connect(hp).connect(g).connect(this.musicGain!);
+    src.start(t);
+    src.stop(t + 0.06);
   }
 
   private musicBox(f: number, t: number) {
@@ -249,7 +394,7 @@ class Audio {
     o.stop(t + d + 0.05);
   }
 
-  stopMusic() {
+  stopMusic(quick = false) {
     if (!this.playing) return;
     this.playing = false;
     window.clearInterval(this.timer);
@@ -257,7 +402,7 @@ class Audio {
     const ctx = this.ctx;
     this.musicGain = null;
     if (g && ctx) {
-      g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.3);
+      g.gain.setTargetAtTime(0.0001, ctx.currentTime, quick ? 0.05 : 0.3);
       window.setTimeout(() => g.disconnect(), 1500);
     }
   }
