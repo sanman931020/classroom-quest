@@ -41,3 +41,7 @@ Codex維護核心：game/types、simulation、storage、data程序與固定數�
 5. **決策資料** `Decision { id, topic, role, step, trigger?, speaker, prompt, question, options[{ id, label, good, effect, result, tags? }] }`；`trigger`：seconded／interrupt／offtopic／quiet／tie，觸發時機寫在 `Meeting.tsx` `decisionReady`。新增情境只需加資料，不需改引擎。
 6. **場景 props** `ClassroomProps`（2.5D 與 3D 共用）：`cast: CastMember[]`（新增 `nameTag`）、`board`、`voteBoard`、`proposalCard`、`classLabel`、`camera`。3D 版以 `remapSeat` 把 2.5D 座位換成面向鏡頭的 3D 座位；邏輯座標不變。
 7. 仍遵守：六步驟不得加成七步、6/18/4 不得加入玩家票或隨機、發言權 FIFO、危險情況找大人。
+
+8. `Prefs` 另含 `music`（背景音樂）。`sfx.startMusic()／stopMusic()／schoolBell()` 需在使用者手勢後呼叫。
+9. `Field` 新增 `voice`（預設 true）顯示麥克風；語音結果附加到現有文字後。首頁班級／名字以語音輸入時會去除空白並截斷長度。
+10. 注音模式下 `startZhuyinFix` 會在 DOM 文字節點插入 U+E01E1–E01EF 選擇器；E2E 以純文字比對時請關閉注音（`classroom-quest-ui-v1` 的 `zhuyin: false`）。
