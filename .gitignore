@@ -1,0 +1,6 @@
+node_modules/
+dist/
+source-reading.local.txt
+*.tar.gz
+playwright-report/
+test-results/
