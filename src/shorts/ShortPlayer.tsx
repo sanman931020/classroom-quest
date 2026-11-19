@@ -5,7 +5,8 @@ import { Icon } from "../components/icons";
 import { usePrefs } from "../ui/prefs";
 import { sfx } from "../ui/sfx";
 import { SHORTS, fmtTime, shortDuration, type Actor, type Scene, type ShortId } from "./shortsData";
-import { partOf, speakLine, stopVoice } from "./voice";
+import { playLine, preloadLines, stopLine } from "./voice";
+import { lineId, voicePart } from "./voiceLines";
 
 /**
  * 學習小短片播放器：以遊戲同款分層角色即時演出（非影片檔），
@@ -43,16 +44,17 @@ function Stage({ scene, lt, reduced }: { scene: Scene; lt: number; reduced: bool
   const bannerK = Math.min(1, lt / 0.45);
   const tally = scene.tally;
   return (
-    <svg className="short-stage scene-svg" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <svg className="short-stage scene-svg" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid meet" overflow="visible" aria-hidden="true">
       <SvgDefs />
       {/* 教室前方背景 */}
-      <rect width="1280" height="720" fill="#f6eedd" />
-      <rect y="400" width="1280" height="75" fill="#cfe2d4" />
-      <rect y="475" width="1280" height="245" fill="#ece4d3" />
-      {Array.from({ length: 9 }, (_, i) => (
-        <line key={i} x1={i * 160} y1={475} x2={i * 160 - 180} y2={720} stroke="#ddd2bd" strokeWidth={2} />
+      {/* 背景延伸到畫框外，任何螢幕比例都不留白邊 */}
+      <rect x="-800" y="-600" width="2880" height="1920" fill="#f6eedd" />
+      <rect x="-800" y="400" width="2880" height="75" fill="#cfe2d4" />
+      <rect x="-800" y="475" width="2880" height="900" fill="#ece4d3" />
+      {Array.from({ length: 19 }, (_, i) => (
+        <line key={i} x1={i * 160 - 640} y1={475} x2={i * 160 - 640 - 420} y2={1100} stroke="#ddd2bd" strokeWidth={2} />
       ))}
-      <line x1="0" y1="475" x2="1280" y2="475" stroke="#c9b48f" strokeWidth={3} />
+      <line x1="-800" y1="475" x2="2080" y2="475" stroke="#c9b48f" strokeWidth={3} />
       {/* 窗戶 */}
       {[60, 1060].map((x, i) => (
         <g key={x}>
@@ -196,11 +198,11 @@ function Stage({ scene, lt, reduced }: { scene: Scene; lt: number; reduced: bool
 export function ShortPlayer({ id, onClose }: { id: ShortId; onClose: () => void }) {
   const short = SHORTS.find((s) => s.id === id)!;
   const total = shortDuration(short);
-  const { reduced, prefs } = usePrefs();
+  const { reduced } = usePrefs();
   const [t, setT] = useState(0);
   const [playing, setPlaying] = useState(true);
   // 人聲預設開啟（有音效且裝置支援語音時）
-  const [narrate, setNarrate] = useState(() => prefs.sound && "speechSynthesis" in window);
+  const [narrate, setNarrate] = useState(true);
   const last = useRef(performance.now());
   const spoken = useRef("");
   const speaking = useRef(false);
@@ -245,14 +247,17 @@ export function ShortPlayer({ id, onClose }: { id: ShortId; onClose: () => void 
     return () => cancelAnimationFrame(raf);
   }, [playing, total, marks]);
 
-  // 輕快背景音樂（短片專用主題），關閉時換回遊戲音樂
+  // 輕快背景音樂（短片專用主題），關閉時換回遊戲音樂；預載人聲
   useEffect(() => {
+    preloadLines(short.scenes.flatMap((sc, i) => sc.captions.map((_, ci) => lineId(short.id, i, ci))));
+    sfx.forceSound(true);
     sfx.setStyle("lively");
     sfx.startMusic();
     return () => {
-      stopVoice();
+      stopLine();
       sfx.duck(false);
       sfx.setStyle("calm");
+      sfx.forceSound(false);
     };
   }, []);
   useEffect(() => {
@@ -274,7 +279,7 @@ export function ShortPlayer({ id, onClose }: { id: ShortId; onClose: () => void 
   // 暫停：停止人聲，繼續時重唸目前台詞
   useEffect(() => {
     if (playing) return;
-    stopVoice();
+    stopLine();
     speaking.current = false;
     sfx.duck(false);
     spoken.current = "";
@@ -288,7 +293,7 @@ export function ShortPlayer({ id, onClose }: { id: ShortId; onClose: () => void 
   const ended = t >= total;
 
   function seek(to: number) {
-    stopVoice();
+    stopLine();
     speaking.current = false;
     sfx.duck(false);
     spoken.current = "";
@@ -309,12 +314,13 @@ export function ShortPlayer({ id, onClose }: { id: ShortId; onClose: () => void 
     spoken.current = k;
     speaking.current = true;
     sfx.duck(true);
-    speakLine(cap.text, partOf(cap.look, cap.who), () => {
+    const ci = scene.captions.indexOf(cap);
+    playLine(lineId(short.id, si, ci), cap.text, voicePart(cap.look, cap.who), Math.max(sfx.level, 0.5) + 0.3, () => {
       if (spoken.current !== k) return;
       speaking.current = false;
       sfx.duck(false);
     });
-  }, [cap, narrate, playing, si]);
+  }, [cap, narrate, playing, si, scene, short.id]);
   useEffect(() => {
     if (ended) sfx.play("complete");
   }, [ended]);
@@ -399,14 +405,14 @@ export function ShortPlayer({ id, onClose }: { id: ShortId; onClose: () => void 
             aria-pressed={narrate}
             onClick={() => {
               if (narrate) {
-                stopVoice();
+                stopLine();
                 speaking.current = false;
                 sfx.duck(false);
               }
               spoken.current = "";
               setNarrate((n) => !n);
             }}
-            disabled={!("speechSynthesis" in window) || !prefs.sound}
+
           >
             <Icon name={narrate ? "sound" : "mute"} size={18} /> 人聲
           </button>

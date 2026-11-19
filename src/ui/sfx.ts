@@ -66,7 +66,12 @@ class Audio {
     this.bpm = bpm;
   }
 
+  private base = { enabled: true, volume: 0.6, music: true };
+  private forced = false;
+
   configure(enabled: boolean, volume: number, music = true) {
+    this.base = { enabled, volume, music };
+    if (this.forced) return;
     this.enabled = enabled;
     this.volume = volume;
     this.musicOn = music;
@@ -194,6 +199,22 @@ class Audio {
       this.stopMusic(true);
       this.startMusic();
     }
+  }
+
+  /** 短片播放時一律有聲音（忽略「聲音關」），結束後恢復原設定 */
+  forceSound(on: boolean) {
+    this.forced = on;
+    if (on) {
+      this.enabled = true;
+      this.musicOn = true;
+      this.volume = Math.max(this.base.volume, 0.5);
+    } else {
+      const b = this.base;
+      this.configure(b.enabled, b.volume, b.music);
+    }
+  }
+  get level() {
+    return this.volume;
   }
 
   /** 人聲說話時壓低音樂 */

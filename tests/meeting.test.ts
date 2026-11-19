@@ -132,3 +132,18 @@ describe("注音破音字", () => {
     for (const [w, r] of Object.entries(WORDS)) expect(r.length, w).toBe(Array.from(w).length);
   });
 });
+
+describe("短片人聲", () => {
+  it("朗讀文字：數字轉中文、去掉括號說明；角色分配不同聲音", async () => {
+    const { speakText, voicePart, lineId } = await import("../src/shorts/voiceLines");
+    const { SHORTS } = await import("../src/shorts/shortsData");
+    expect(speakText("哇！14 比 14，平票了！")).toBe("哇！十四 比 十四，平票了！");
+    expect(speakText("（插話）可是我們想討論漫畫啦！")).toBe("可是我們想討論漫畫啦！");
+    expect(voicePart("teacher", "林老師")).toBe("teacher");
+    expect(voicePart(undefined, "旁白")).toBe("narrator");
+    expect(voicePart("npc0", "主席")).toBe("yu");
+    expect(new Set(["anan", "mi", "hao", "zhe", "npc0"].map((l) => voicePart(l as never, "x"))).size).toBe(5);
+    expect(lineId("election", 0, 0)).toBe("election-1-1");
+    for (const s of SHORTS) expect(s.scenes.reduce((a, b) => a + b.dur, 0)).toBeLessThanOrEqual(90);
+  });
+});

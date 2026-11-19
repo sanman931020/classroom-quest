@@ -42,7 +42,8 @@
 | tap / pick / drop / invalid / success / complete / whoosh / hand / tick / page / open | Web Audio 即時合成，原創、無授權問題；使用者手勢後才播放，可靜音與調音量 |
 | 上課鐘聲 | Web Audio 合成鐘聲音色，旋律為西敏寺鐘聲（1793，公有領域） |
 | 背景音樂 | 原創音樂盒循環（C 大調 I–vi–IV–V，88 BPM），Web Audio 即時合成，可關閉 |
-| 角色配音 | **未製作** |
+| 短片人聲（43 句） | Kokoro-82M（hexgrad，Apache-2.0）在本機產生的 MP3：`public/voice/shorts/<短片>-<場景>-<句>.mp3`。角色聲音：林老師 zf_xiaoxiao、旁白 zf_xiaoni、安安 zf_xiaoyi、小米 zf_xiaobei、浩浩 zm_yunxia、阿哲 zm_yunxi、小宇 zm_yunjian、大家 zm_yunyang；兒童角色升調 1.12–1.24 倍。口音為標準普通話（非臺灣腔）。重新產生：`scripts/gen_voices.py`；可用同檔名真人錄音覆蓋 |
+| 遊戲內對話配音 | **未製作**（第三／四階段） |
 
 ## 仍屬佔位、建議第三／四階段替換
 

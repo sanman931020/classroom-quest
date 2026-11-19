@@ -166,12 +166,14 @@ export function Overlay({
   children,
   wide = false,
   icon,
+  className = "",
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
   wide?: boolean;
   icon?: IconName;
+  className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
@@ -204,7 +206,7 @@ export function Overlay({
   }, []);
   return (
     <div className="overlay" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={ref} className={`overlay-card ${wide ? "wide" : ""}`} role="dialog" aria-modal="true" aria-labelledby={id}>
+      <div ref={ref} className={`overlay-card ${wide ? "wide" : ""} ${className}`} role="dialog" aria-modal="true" aria-labelledby={id}>
         <header className="overlay-head">
           {icon && <Icon name={icon} size={26} />}
           <h2 id={id}>{title}</h2>

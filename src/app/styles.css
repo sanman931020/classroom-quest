@@ -735,3 +735,18 @@ input.is-empty:focus, textarea.is-empty:focus { animation: none; }
   box-shadow: var(--sh-paper-2);
 }
 .corner-btn[aria-pressed="false"] { color: var(--c-ink-faint); }
+
+/* 短片播放器：滿版，不留白邊 */
+.short-overlay { padding: 0; background: #1f2a24; place-items: stretch; }
+.short-card { width: 100vw; height: 100dvh; max-height: none; border-radius: 0; padding: 0; gap: 0; position: relative; grid-template-rows: 1fr; background: #1f2a24; box-shadow: none; animation: fade-in var(--t-base) both; }
+.short-screen { max-height: none; height: 100%; width: 100%; aspect-ratio: auto; border-radius: 0; background: #f6eedd; }
+.short-stage { object-fit: cover; }
+.short-head { position: absolute; top: 0; left: 0; right: 0; z-index: 3; padding: max(10px, env(safe-area-inset-top)) 14px 10px; background: linear-gradient(rgba(255, 252, 245, 0.95), rgba(255, 252, 245, 0)); }
+.short-controls { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; padding: 8px 14px max(10px, env(safe-area-inset-bottom)); background: linear-gradient(rgba(255, 252, 245, 0), rgba(255, 252, 245, 0.95) 40%); }
+.short-caption { bottom: 74px; }
+.profile-inline.nudge { animation: shake 0.45s; }
+.profile-inline.nudge input.is-empty { border-color: var(--c-coral); box-shadow: 0 0 0 4px rgba(233, 138, 124, 0.35); }
+
+/* 教師用畫面：不加注音 */
+.no-zhuyin, .no-zhuyin * { font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif !important; }
+.no-zhuyin { line-height: 1.65; }

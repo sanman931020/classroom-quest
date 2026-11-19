@@ -82,3 +82,67 @@ export function stopVoice() {
     /* 無需處理 */
   }
 }
+
+/* ---------------- 預錄人聲（優先使用） ---------------- */
+import { voiceUrl, type VoicePart } from "./voiceLines";
+
+const preloaded = new Map<string, HTMLAudioElement>();
+let current: HTMLAudioElement | null = null;
+
+/** 預先載入一部短片的所有台詞音檔 */
+export function preloadLines(ids: string[]) {
+  for (const id of ids) {
+    if (preloaded.has(id)) continue;
+    const a = new Audio();
+    a.preload = "auto";
+    a.src = voiceUrl(id);
+    preloaded.set(id, a);
+  }
+}
+
+const FALLBACK: Record<VoicePart, Part> = {
+  teacher: "teacher",
+  narrator: "narrator",
+  chorus: "narrator",
+  anan: "girl",
+  mi: "girl",
+  girl: "girl",
+  hao: "boy",
+  zhe: "boy",
+  yu: "boy",
+  boy: "boy",
+};
+
+/** 播放一句台詞：有音檔用音檔，沒有或失敗時改用瀏覽器語音 */
+export function playLine(id: string, text: string, part: VoicePart, volume: number, onEnd: () => void) {
+  stopLine();
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    onEnd();
+  };
+  const fallback = () => {
+    if (done) return;
+    speakLine(text, FALLBACK[part], finish);
+  };
+  const a = preloaded.get(id) ?? new Audio(voiceUrl(id));
+  current = a;
+  a.volume = Math.max(0, Math.min(1, volume));
+  a.currentTime = 0;
+  a.onended = finish;
+  a.onerror = fallback;
+  a.play().catch(fallback);
+  // 保底：音檔卡住時不讓短片停住
+  window.setTimeout(finish, 15000);
+}
+
+export function stopLine() {
+  if (current) {
+    current.pause();
+    current.onended = null;
+    current.onerror = null;
+    current = null;
+  }
+  stopVoice();
+}

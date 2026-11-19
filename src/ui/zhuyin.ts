@@ -109,7 +109,7 @@ const SKIP = new Set(["SCRIPT", "STYLE", "TEXTAREA", "INPUT", "CANVAS", "TITLE"]
 function processNode(node: Node) {
   if (node.nodeType === Node.TEXT_NODE) {
     const p = node.parentElement;
-    if (!p || SKIP.has(p.tagName) || p.isContentEditable) return;
+    if (!p || SKIP.has(p.tagName) || p.isContentEditable || p.closest(".no-zhuyin")) return;
     const v = node.nodeValue ?? "";
     const n = annotate(v);
     if (n !== v) node.nodeValue = n;

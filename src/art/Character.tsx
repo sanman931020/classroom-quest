@@ -112,7 +112,8 @@ function npcPalette(n: number): Palette {
     hairShade: "#1d1612",
     skin: skins[n % 3],
     bottom: "#3f5d7c",
-    girl: n % 3 === 0,
+    // 小宇（npc0）為男生、小芸（npc9）為女生
+    girl: n === 9 || n % 3 === 1,
   };
 }
 

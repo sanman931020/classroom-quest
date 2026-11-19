@@ -319,6 +319,17 @@ function Home({
     return () => window.clearInterval(iv);
   }, [prefs.motion]);
   const ready = !!ext.className.trim() && !!ext.playerName.trim();
+  const [nudge, setNudge] = useState(0);
+  /** 還沒填班級或名字：提示並把游標移到空白欄位（回傳 true 表示先不要進入） */
+  function needInfo() {
+    if (ready) return false;
+    sfx.play("invalid");
+    notify("請先寫下你的班級和名字喔！");
+    setNudge((n) => n + 1);
+    const id = !ext.className.trim() ? "my-class" : "my-name";
+    window.setTimeout(() => document.getElementById(id)?.focus(), 50);
+    return true;
+  }
   const lines: Record<string, string> = {
     anan: `安安：${displayName(ext)}，今天的班會你想當什麼角色？`,
     mi: "小米：午休時，我想安安靜靜的看書。",
@@ -376,7 +387,7 @@ function Home({
           </h1>
           <p className="logo-sub">Classroom Quest・班會大挑戰</p>
         </div>
-        <div className="profile-inline" role="group" aria-label="我的資料">
+        <div className={`profile-inline ${nudge ? "nudge" : ""}`} key={`nudge-${nudge}`} role="group" aria-label="我的資料">
           <div className="field">
             <div className="field-head">
               <label className="field-label" htmlFor="my-class">
@@ -432,14 +443,14 @@ function Home({
           )}
         </p>
         <nav className="home-menu" aria-label="主選單">
-          <button className="btn btn-primary btn-big" disabled={!ready} onClick={onStart}>
+          <button className="btn btn-primary btn-big" onClick={() => needInfo() || onStart()}>
             <Icon name="play" /> 開始探索
           </button>
           <div className="home-menu-row">
-            <button className="btn btn-soft" disabled={!started || !ready} onClick={onContinue}>
+            <button className="btn btn-soft" onClick={() => needInfo() || (started ? onContinue() : onStart())}>
               <Icon name="next" /> 繼續
             </button>
-            <button className="btn btn-soft" disabled={!ready} onClick={() => open("chapters")}>
+            <button className="btn btn-soft" onClick={() => needInfo() || open("chapters")}>
               <Icon name="map" /> 章節
             </button>
             <button className="btn btn-soft" onClick={() => open("shorts")}>
@@ -694,7 +705,7 @@ function Teacher({
   const [tab, setTab] = useState<"goals" | "go" | "data">("goals");
   const [confirm, setConfirm] = useState(false);
   return (
-    <Overlay title="教師入口" icon="teacher" wide onClose={onClose}>
+    <Overlay title="教師入口" icon="teacher" wide onClose={onClose} className="no-zhuyin">
       <div className="seg sheet-tabs" role="tablist">
         {(
           [
