@@ -26,9 +26,20 @@ function num(n: number): string {
   if (n < 100) return DIGITS[Math.floor(n / 10)] + "十" + (n % 10 ? DIGITS[n % 10] : "");
   return String(n);
 }
-/** 轉成朗讀用文字：去掉括號說明、數字改中文、斜線改「比」 */
+/**
+ * 語音合成的破音字修正（只影響聲音，畫面字幕不變）：以同音字取代合成器會念錯的詞。
+ * 經 misaki 中文拼音檢查：仔細(zǎi→zǐ)、忘了還(hái→huán)、照著(zhù→zhe)。
+ */
+const TTS_FIX: [RegExp, string][] = [
+  [/仔細/g, "子細"],
+  [/忘了還/g, "忘了環"],
+  [/照著/g, "照着"],
+];
+/** 轉成朗讀用文字：去掉括號說明、數字改中文、修正破音字 */
 export function speakText(text: string) {
-  return text
+  let t = text;
+  for (const [re, to] of TTS_FIX) t = t.replace(re, to);
+  return t
     .replace(/（.*?）/g, "")
     .replace(/(\d+)\s*／\s*(\d+)\s*／\s*(\d+)/g, (_, a, b, c) => `${num(+a)}、${num(+b)}、${num(+c)}`)
     .replace(/\d+/g, (d) => num(+d))

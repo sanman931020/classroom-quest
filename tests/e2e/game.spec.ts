@@ -232,3 +232,24 @@ test("學習小短片：從首頁開啟、跳段、播完，並在遊戲中出�
   await pick(page, "選舉班級幹部", "主席");
   await expect(page.getByRole("button", { name: /先看小短片：選幹部四步驟/ })).toBeVisible();
 });
+
+test("小短片有人聲音檔：載入 MP3 並播放（聲音關也照樣播放）", async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as unknown as { __played: string[] }).__played = [];
+    const op = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function () {
+      (window as unknown as { __played: string[] }).__played.push(this.src.split("/").pop() ?? "");
+      return op.call(this).catch(() => undefined);
+    };
+  });
+  const mp3: number[] = [];
+  page.on("response", (r) => r.url().includes("/voice/shorts/") && mp3.push(r.status()));
+  await enter(page);
+  // 首頁按「聲音關」
+  await page.getByRole("button", { name: "關閉聲音" }).click();
+  await page.getByRole("button", { name: "小短片" }).click();
+  await page.getByRole("button", { name: /選幹部，四步驟/ }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __played: string[] }).__played), { timeout: 10_000 }).toContain("election-1-1.mp3");
+  expect(mp3.length).toBeGreaterThan(0);
+  expect(mp3.every((s) => s === 200 || s === 206 || s === 304)).toBe(true);
+});
