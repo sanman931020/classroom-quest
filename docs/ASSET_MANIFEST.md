@@ -1,23 +1,50 @@
-# 正式素材需求
+# 素材清單（第二階段）
 
-目前所有CSS角色、家具符號與場景都是原型。新增圖檔置 `src/assets/`，命名 `角色或場景-物件-狀態.webp`，所有文字保持DOM。透明PNG/WebP優先，小圖可SVG，不熱連結或直接使用無授權課本圖。
+本階段沒有使用任何外部圖片、模型或錄音檔。所有視覺素材都是程式產生（three.js 幾何體、SVG、Canvas），可直接替換；所有文字由程式渲染，不烙在圖上。
 
-|素材|用途與尺寸|透明與圖層|錨點與熱區|狀態及格式|
-|---|---|---|---|---|
-|anan/zhe/mi/hao|學生全身512×768|透明，層30腳底y排序|底部中央，至少48px熱區|idle/talk/raise-hand/think/happy/concern，WebP|
-|teacher|老師全身512×768|透明，層30|底部中央，至少48px|idle/talk/guide，WebP|
-|classroom-wall|後牆1600×800|不透明，層0|上中，無熱區|靜態WebP|
-|classroom-floor|8×4格地板1600×800|透明邊，層10|場景中央，格點映射|靜態WebP|
-|shelf-idle|書櫃256×320|透明，層20|格中心投影到底部，整格熱區|idle/selected/drag/invalid，WebP|
-|table-idle|桌椅組384×256|透明，層20|格中心，至少48px|同上，不改邏輯占格，WebP|
-|mat-idle|地墊384×192|透明，層15|格中心，至少48px|selected/drag，WebP|
-|meeting-room|班會場景1600×1000|不透明無角色，層0|中央，黑板文字另渲染|靜態WebP|
-|lectern|講桌320×320|透明，層25|底部中央|靜態WebP|
-|campus-map|校園1600×1000|不透明，層0|中央，無文字|靜態WebP|
-|station-clean/traffic/library/council|四站建物400×320|透明，層20|底部中央，至少64px|selected/complete，WebP|
-|radar/detective/note|三功能圖示96×96|透明，UI層50|中心，不獨立互動|SVG|
-|face-happy/neutral/sad|回饋表情96×96|透明，UI層50|中心，48px|SVG|
-|sfx-tap/success/retry/transition|回饋0.1–1秒|不適用|使用者手勢後播放|OGG或MP3，提供靜音|
-|voice-line-*|角色台詞|不適用|不得取代文字|授權錄音或語音，與data對應|
+## 字型
 
-建議35度等角2.5D，兒童頭身1:3、老師1:4。單張盡量300KB內，首屏圖片預算1.5MB內；加入後實測。圖層是後續規畫，不宣稱現有CSS都已採用。
+| 素材 | 用途 | 來源與授權 | 位置 |
+|---|---|---|---|
+| Bpmf Huninn（粉圓注音） | 注音模式全介面字型 | npm `@fontsource/bpmf-huninn` 5.3.1，OFL-1.1，打包在建置輸出內（可離線） | `src/app/main.tsx` import |
+| LXGW WenKai TC／Noto Sans TC | 關閉注音時的標題／內文 | Google Fonts（OFL），離線時退回系統字 | `src/app/styles.css` |
+
+## 3D（`src/scenes3d/`，程式幾何，佔位等級：可用但非最終手繪）
+
+| 素材 | 狀態 | 替換方式 |
+|---|---|---|
+| 角色 anan / zhe / mi / hao / teacher / player / npcN | 幾何組合＋三階卡通材質；表情 idle/happy/confused/worried/thinking/talking；姿勢 stand/raise/wave/read/point/sit（可 seated+raise） | 換成 glTF 時保留 `Character3D` props 介面；錨點為腳底中央、面向 +z |
+| 教室結構（地板、牆、窗、門、時鐘、三角旗、作品牆） | 程式幾何 | `Room` 元件內替換 |
+| 課桌椅（12 組，面向鏡頭排列）、講桌、記錄桌 | 程式幾何 | `Desk`；座位座標由 `remapSeat` 從 2.5D 座位換算 |
+| 閱讀角書櫃／地墊／討論桌 | 程式幾何，位置讀取 Progress.positions | `Shelf`／`Mat`／`Table` |
+| 黑板、班級公約布告欄、表決板文字 | Canvas 貼圖（程式繪製文字） | `Blackboard`／`RulesBoard`／`VoteBoard3D` |
+| 材質 | `MeshToonMaterial` + 3 階漸層貼圖，顏色快取 | `materials.ts` |
+
+## 2.5D 備援（`src/art/`、`src/scenes/Classroom.tsx`）
+
+| 素材 | 狀態 |
+|---|---|
+| SVG 分層角色（同 mood／pose） | 原創 SVG，可用 |
+| 等角教室、家具、窗簾、陽光、黑板、布告欄 | 原創 SVG，水彩邊緣濾鏡（省電時關閉） |
+
+## 介面
+
+| 素材 | 狀態 |
+|---|---|
+| 圖示 34 個（`components/icons.tsx`） | 原創 SVG 線條圖示，不依賴 emoji |
+| 紙紋 | 內嵌 SVG 噪點 data URI |
+| 紙花、完成徽章 | CSS |
+
+## 音效（`src/ui/sfx.ts`）
+
+| 名稱 | 狀態 |
+|---|---|
+| tap / pick / drop / invalid / success / complete / whoosh / hand / tick / page / open | Web Audio 即時合成，原創、無授權問題；使用者手勢後才播放，可靜音與調音量 |
+| 背景音樂 | **未製作** |
+| 角色配音 | **未製作** |
+
+## 仍屬佔位、建議第三／四階段替換
+
+1. 角色：幾何拼組，建議改為統一畫風的 glTF（低多邊形、2–5k 三角面／角色）或水彩貼圖卡片角色。
+2. 黑板等 Canvas 文字解析度有限（1024×236），投影時可再提高或改 DOM 標籤。
+3. 配音、背景音樂。

@@ -329,6 +329,8 @@ export function Character3D({
           onActivate
             ? (e) => {
                 e.stopPropagation();
+                // 拖曳轉頭時不觸發點擊
+                if (e.delta > 8) return;
                 onActivate();
               }
             : undefined

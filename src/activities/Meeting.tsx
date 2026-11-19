@@ -31,7 +31,7 @@ import {
 import { displayClass, displayName, type MeetingExt } from "../storage/meetingExt";
 import { Field, type ActivityProps } from "../components/shared";
 import { PlayLayout } from "../components/PlayLayout";
-import { Callout, CheckBadge, Completion, DialogueBox, PhraseChips, StepTabs, TaskHint, type Choice } from "../components/ui";
+import { Completion, DialogueBox, Overlay, PhraseChips, StepTabs, TaskHint, type Choice } from "../components/ui";
 import { Icon } from "../components/icons";
 import { Portrait, type Look, type Mood } from "../art/Character";
 import { SEATS, type CastMember } from "../scenes/Classroom";
@@ -103,6 +103,10 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
   const [done, setDone] = useState<TopicId | null>(null);
   const [dayIdx, setDayIdx] = useState(0);
   const [labMeasures, setLabMeasures] = useState<string[]>(ext.measures);
+  const [skipMatch, setSkipMatch] = useState(false);
+  const [reflectTab, setReflectTab] = useState<"redo" | "lab" | "write">("redo");
+  const [cardOpen, setCardOpen] = useState<string | null>(null);
+  const [logOpen, setLogOpen] = useState(false);
   const prevMeetingDone = useRef(m.done);
   const prevWinner = useRef(e.winner);
 
@@ -582,23 +586,14 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
       {lastResult.delta && <small className="impact-delta">{lastResult.delta}</small>}
     </div>
   );
-  const madeList = (step: number) =>
-    decisionsAt(step).map((d) =>
-      ext.choices[d.id] ? (
-        <p key={d.id} className="decision-made">
-          <Icon name={d.options.find((o) => o.id === ext.choices[d.id])!.good ? "check" : "bulb"} size={16} />
-          我的選擇：{d.options.find((o) => o.id === ext.choices[d.id])!.label}
-        </p>
-      ) : null,
-    );
-
   let body: React.ReactNode;
   let footer: React.ReactNode = null;
 
   if (chapter === "topic") {
+    const picked = ROLES.find((r) => r.id === ext.role);
     body = (
       <>
-        <h2 className="mission-title">{me}，今天的班會要討論什麼？</h2>
+        <h2 className="mission-title">{me}，今天要討論什麼？</h2>
         <div className="topic-picker" role="group" aria-label="討論主題">
           {TOPICS.map((t) => (
             <button
@@ -613,14 +608,13 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
               }}
             >
               <b>{t.title}</b>
-              <span>{t.sub}</span>
               <small>
                 {t.pages}・{t.steps.length} 個步驟
               </small>
             </button>
           ))}
         </div>
-        <h3 className="sub-title">我要扮演的角色</h3>
+        <h3 className="sub-title">我要當……</h3>
         <div className="role-picker" role="group" aria-label="班會角色">
           {ROLES.map((r) => (
             <button
@@ -635,18 +629,15 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
                 notify(`${me}是${r.name}！${r.tip}`);
               }}
             >
-              <Portrait look="player" mood={ext.role === r.id ? "happy" : "idle"} size={46} />
+              <Portrait look="player" mood={ext.role === r.id ? "happy" : "idle"} size={40} />
               <span>
                 <b>{r.name}</b>
                 <small>{r.duty}</small>
-                <small className="muted">{r.tip}</small>
               </span>
             </button>
           ))}
         </div>
-        <Callout kind="note" title="知識便利貼">
-          主席：負責主持班會進行。司儀：協助宣布班會程序。記錄：負責記錄會議的內容。每位同學都可以參加班會討論。
-        </Callout>
+        {picked && <p className="role-tip">{picked.tip}</p>}
       </>
     );
     footer = (
@@ -664,12 +655,10 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
     );
   } else if (chapter === "election") {
     const matchedAll = ext.officers.length === officers.length;
+    const matching = e.step === 0 && !e.winner && !matchedAll && !skipMatch;
     const label = e.winner ? "觀察選舉的影響" : e.step === 0 ? "確認提名" : e.step === 1 ? (seconding ? "完成討論" : "徵求附議") : e.step === 2 ? (tieVisible ? "再表決一次" : "舉手表決") : "宣布結果";
     body = (
       <>
-        <h2 className="mission-title">
-          選舉班長（{roleInfo.name}：{me}）
-        </h2>
         <ol className="flow">
           {TOPICS[0].steps.map((v, i) => (
             <li key={v} className={e.winner || i < e.step ? "is-done" : i === e.step ? "is-current" : ""}>
@@ -678,146 +667,161 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
           ))}
         </ol>
         {resultCard}
-        {!e.winner && madeList(e.step)}
-        {e.step === 0 && !e.winner && (
-          <>
-            <Callout kind="detective" title="先認識：幹部做什麼？">
-              <p className="small">先點幹部，再點他的工作。</p>
-              <div className="match-grid">
-                <div className="match-col" role="group" aria-label="幹部">
-                  {officers.map(([n]) => (
+        {matching ? (
+          <div className="task-card">
+            <h3 className="task-title">先認識：幹部做什麼？</h3>
+            <p className="small">先點幹部，再點他的工作。</p>
+            <div className="match-grid">
+              <div className="match-col" role="group" aria-label="幹部">
+                {officers.map(([n]) => (
+                  <button
+                    key={n}
+                    className={`match-chip ${pickOfficer === n ? "is-picked" : ""} ${ext.officers.includes(n) ? "is-done" : ""}`}
+                    aria-pressed={pickOfficer === n}
+                    disabled={ext.officers.includes(n)}
+                    onClick={() => {
+                      sfx.play("pick");
+                      setPickOfficer(n);
+                    }}
+                  >
+                    {ext.officers.includes(n) && <Icon name="check" size={16} />}
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <div className="match-col" role="group" aria-label="工作">
+                {JOB_ORDER.map((n) => (
+                  <button
+                    key={n}
+                    className={`match-chip job ${ext.officers.includes(n) ? "is-done" : ""}`}
+                    disabled={ext.officers.includes(n)}
+                    onClick={() => {
+                      if (!pickOfficer) {
+                        notify("請先點一位幹部。");
+                        return;
+                      }
+                      if (pickOfficer === n) {
+                        sfx.play("success");
+                        updateExt((x) => {
+                          if (!x.officers.includes(n)) x.officers.push(n);
+                        });
+                        notify(`答對了！${n}：${JOBS[n]}。`);
+                      } else {
+                        sfx.play("invalid");
+                        notify(`再想想：「${JOBS[n]}」比較像哪一位幹部的工作？`);
+                      }
+                      setPickOfficer(null);
+                    }}
+                  >
+                    {JOBS[n]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : !e.winner ? (
+          <div className="task-card">
+            {e.step === 0 && (
+              <>
+                <h3 className="task-title">步驟一：提名人選</h3>
+                <p className="small">{role === "student" ? "你想提名誰當班長？" : "同學提名了兩位人選。"}</p>
+                <div className="big-choices" role="group" aria-label="提名班長">
+                  {["安安", "阿哲"].map((n) => (
                     <button
                       key={n}
-                      className={`match-chip ${pickOfficer === n ? "is-picked" : ""} ${ext.officers.includes(n) ? "is-done" : ""}`}
-                      aria-pressed={pickOfficer === n}
-                      disabled={ext.officers.includes(n)}
+                      className={`person-big ${e.nominee === n ? "is-on" : ""}`}
+                      aria-pressed={e.nominee === n}
                       onClick={() => {
                         sfx.play("pick");
-                        setPickOfficer(n);
+                        update((d) => {
+                          d.election.nominee = n;
+                        });
                       }}
                     >
-                      {ext.officers.includes(n) && <Icon name="check" size={16} />}
-                      {n}
+                      <Portrait look={n === "安安" ? "anan" : "zhe"} mood={e.nominee === n ? "happy" : "idle"} size={56} />
+                      <b>{n}</b>
                     </button>
                   ))}
                 </div>
-                <div className="match-col" role="group" aria-label="工作">
-                  {JOB_ORDER.map((n) => (
+              </>
+            )}
+            {e.step === 1 && (
+              <>
+                <h3 className="task-title">步驟二：徵求附議，進行討論</h3>
+                <div className="compare">
+                  <div className="compare-card">
+                    <Portrait look="anan" mood="happy" size={44} />
+                    <p>
+                      <b>安安</b>「我會每天確認值日表。」
+                    </p>
+                  </div>
+                  <div className="compare-card">
+                    <Portrait look="zhe" mood="happy" size={44} />
+                    <p>
+                      <b>阿哲</b>「我會清楚記錄大家的需求。」
+                    </p>
+                  </div>
+                </div>
+                <p className="note-line">
+                  <Icon name="note" size={16} /> 附議：一個人以上贊成這個提議，用舉手或口頭表達。
+                </p>
+              </>
+            )}
+            {e.step === 2 && (
+              <>
+                <h3 className="task-title">步驟三：舉手表決</h3>
+                <p className="small">{tieVisible ? "第一次表決 14：14，平票了！" : "你要舉手支持誰？"}</p>
+                <div className="big-choices" role="group" aria-label="我的舉手支持">
+                  {["安安", "阿哲"].map((n) => (
                     <button
                       key={n}
-                      className={`match-chip job ${ext.officers.includes(n) ? "is-done" : ""}`}
-                      disabled={ext.officers.includes(n)}
+                      className={`person-big ${e.vote === n ? "is-on" : ""}`}
+                      aria-pressed={e.vote === n}
+                      disabled={!!counting || tieVisible}
                       onClick={() => {
-                        if (!pickOfficer) {
-                          notify("請先點一位幹部。");
-                          return;
-                        }
-                        if (pickOfficer === n) {
-                          sfx.play("success");
-                          updateExt((x) => {
-                            if (!x.officers.includes(n)) x.officers.push(n);
-                          });
-                          notify(`答對了！${n}：${JOBS[n]}。`);
-                        } else {
-                          sfx.play("invalid");
-                          notify(`再想想：「${JOBS[n]}」比較像哪一位幹部的工作？`);
-                        }
-                        setPickOfficer(null);
+                        sfx.play("hand");
+                        update((d) => {
+                          d.election.vote = n;
+                        });
                       }}
                     >
-                      {JOBS[n]}
+                      <Portrait look={n === "安安" ? "anan" : "zhe"} mood={e.vote === n ? "happy" : "idle"} size={56} />
+                      <b>{n}</b>
+                      {electionVotes && <span className="vote-num">{e.vote === n || (!e.vote && n === "安安") ? electionVotes[0] : electionVotes[1]} 票</span>}
                     </button>
                   ))}
                 </div>
-              </div>
-              {matchedAll && (
-                <p className="success-line">
-                  <Icon name="check" size={18} /> 幹部是為大家服務的人！
-                </p>
-              )}
-            </Callout>
-            <label className="field">
-              <span className="field-label">{role === "student" ? "我想提名的人" : "被提名的人選（任期：本次教學演練）"}</span>
-              <select
-                aria-label="提名班長"
-                value={e.nominee}
-                onChange={(ev) => {
-                  const v = ev.target.value;
-                  update((d) => {
-                    d.election.nominee = v;
-                  });
-                }}
-              >
-                <option value="">請選擇</option>
-                <option>安安</option>
-                <option>阿哲</option>
-              </select>
-            </label>
-          </>
-        )}
-        {e.step === 1 && !e.winner && (
-          <div className="compare">
-            <div className="compare-card">
-              <Portrait look="anan" mood="happy" size={48} />
-              <p>
-                <b>安安</b>「我會每天確認值日表。」
-              </p>
-            </div>
-            <div className="compare-card">
-              <Portrait look="zhe" mood="happy" size={48} />
-              <p>
-                <b>阿哲</b>「我會清楚記錄大家的需求。」
-              </p>
-            </div>
-            <Callout kind="note" title="知識便利貼">
-              附議：表示一個人以上贊成這個提議，以舉手或口頭表達。
-            </Callout>
-          </div>
-        )}
-        {e.step === 2 && !e.winner && (
-          <>
-            <label className="field">
-              <span className="field-label">我的舉手支持</span>
-              <select
-                aria-label="我的舉手支持"
-                value={e.vote}
-                disabled={!!counting || tieVisible}
-                onChange={(ev) => {
-                  const v = ev.target.value;
-                  update((d) => {
-                    d.election.vote = v;
-                  });
-                }}
-              >
-                <option value="">請選擇</option>
-                <option>安安</option>
-                <option>阿哲</option>
-              </select>
-            </label>
-            {tieVisible && (
-              <Callout kind="radar" title="平票了！">
-                <p>第一次表決 14：14。想一想：平票時要怎麼處理才公平？</p>
-                <button className="btn btn-soft" onClick={openHandbook}>
-                  <Icon name="note" size={18} /> 查看班會小百科
-                </button>
-              </Callout>
+                {tieVisible && (
+                  <button className="btn btn-soft wide" onClick={openHandbook}>
+                    <Icon name="note" size={18} /> 平票怎麼辦？看小百科
+                  </button>
+                )}
+                <p className="sim-note">票數為遊戲模擬，不是真實學生投票。</p>
+              </>
             )}
-            <p className="sim-note">票數為遊戲模擬，不是真實學生投票。</p>
-          </>
-        )}
-        {e.step === 3 && !e.winner && (
-          <p className="sim-note">
-            再表決結果：{e.vote} 16 票、{other} 12 票（模擬）。請宣布結果。
-          </p>
-        )}
-        {e.winner && (
+            {e.step === 3 && (
+              <>
+                <h3 className="task-title">步驟四：宣布結果</h3>
+                <p className="sim-note">
+                  再表決：{e.vote} 16 票、{other} 12 票（模擬）
+                </p>
+              </>
+            )}
+          </div>
+        ) : (
           <p className="success-line">
             <Icon name="check" size={18} /> 本次教學模擬班長：{e.winner}。班上同學都有機會擔任幹部，為大家服務。
           </p>
         )}
       </>
     );
-    footer = (
+    footer = matching ? (
+      <div className="foot-row">
+        <button className="btn btn-soft" onClick={() => setSkipMatch(true)}>
+          先略過
+        </button>
+      </div>
+    ) : (
       <button className="btn btn-primary wide" disabled={!!counting} onClick={() => (e.winner ? setChapter("impact") : electionAction())}>
         {counting ? "計票中…" : label} <Icon name="next" size={20} />
       </button>
@@ -826,10 +830,9 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
     body = (
       <>
         <h2 className="mission-title">提出問題：我的提案單</h2>
-        <span className="tag">學習單・會前完成</span>
         {!e.winner && (
-          <>
-            <TaskHint icon="bulb">開班會需要主席。還沒選班長的話，可以先玩「選舉班級幹部」，或使用預設：班長安安。</TaskHint>
+          <div className="task-card warn">
+            <p className="small">開班會需要主席。還沒選班長的話：</p>
             <div className="foot-row">
               <button
                 className="btn btn-soft"
@@ -854,19 +857,19 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
                 使用預設（班長安安）
               </button>
             </div>
-          </>
+          </div>
         )}
-        <p className="small">提案要在會議前提出。可以自己寫，也可以點引導句。</p>
         {(
           [
-            ["problem", "我發現的問題", ["午休時閱讀角有聲音", "有書沒有放回原位", "大家想用閱讀角的方式不一樣"]],
-            ["plan", "我的提案", ["分成安靜區和討論區", "每天輪流使用", "訂一條閱讀角公約"]],
-            ["reason", "我的理由", ["讓想安靜和想討論的人都有地方", "這樣比較公平", "大家都能好好看書"]],
+            ["problem", "我發現的問題", ["午休時閱讀角有聲音", "有書沒有放回原位"]],
+            ["plan", "我的提案", ["分成安靜區和討論區", "每天輪流使用"]],
+            ["reason", "我的理由", ["讓想安靜和想討論的人都有地方", "這樣比較公平"]],
           ] as const
         ).map(([key, lbl, ph]) => (
           <div key={key} className="proposal-field">
             <Field
               label={lbl}
+              rows={1}
               value={s.proposal[key]}
               onChange={(v) =>
                 update((d) => {
@@ -885,12 +888,6 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
             />
           </div>
         ))}
-        <div className="checks-row">
-          <CheckBadge ok={!!s.proposal.problem.trim()}>問題</CheckBadge>
-          <CheckBadge ok={!!s.proposal.plan.trim()}>提案</CheckBadge>
-          <CheckBadge ok={!!s.proposal.reason.trim()}>理由</CheckBadge>
-        </div>
-        <p className="small muted">系統只檢查有沒有填寫完整，不判斷內容好壞；可以和老師、同學一起討論。</p>
       </>
     );
     footer = (
@@ -899,207 +896,188 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
       </button>
     );
   } else if (chapter === "meeting") {
-    const rows =
-      role === "chair"
-        ? [["player", "主席", `${me}：主持會議`], ["anan", "司儀", "安安：宣布程序"], ["zhe", "記錄", "阿哲：記錄內容"]]
-        : role === "emcee"
-          ? [["anan", "主席", "安安：主持會議"], ["player", "司儀", `${me}：宣布程序`], ["zhe", "記錄", "阿哲：記錄內容"]]
-          : role === "recorder"
-            ? [["anan", "主席", "安安：主持會議"], ["npc0", "司儀", "小宇：宣布程序"], ["player", "記錄", `${me}：記錄內容`]]
-            : [["anan", "主席", "安安"], ["npc0", "司儀", "小宇"], ["player", "學生", `${me}：參加討論`]];
-    body = (
-      <>
-        <div className="roles-row">
-          {rows.map(([l, r, t]) => (
-            <div key={r} className={`role-chip ${l === "player" ? "is-me" : ""}`}>
-              <Portrait look={l as Look} size={38} />
-              <span>
-                <b>{r}</b>
-                <small>{t}</small>
-              </span>
-            </div>
-          ))}
-        </div>
-        <ol className="agenda" aria-label="班會程序">
+    const roleChip = (
+      <div className="role-line">
+        <span className="role-pill">
+          <Portrait look="player" size={28} />
+          {me}・{roleInfo.name}
+        </span>
+        <ol className="agenda-dots" aria-label="班會程序">
           {meetingSteps.map((v, i) => (
             <li key={v} className={m.done || i < m.step ? "is-done" : i === m.step ? "is-current" : ""}>
-              <button className="agenda-btn" onClick={() => notify(i === m.step ? `目前：${v}。請完成此程序。` : "請依序完成目前程序，再前進。")}>
-                <span className="agenda-num">{m.done || i < m.step ? <Icon name="check" size={14} /> : i + 1}</span>
-                {v}
+              <button className="agenda-dot" aria-label={`${i + 1} ${v}`} onClick={() => notify(i === m.step ? `目前：${v}。請完成此程序。` : "請依序完成目前程序，再前進。")}>
+                {m.done || i < m.step ? <Icon name="check" size={13} /> : i + 1}
               </button>
             </li>
           ))}
         </ol>
-        {m.done ? (
-          <p className="success-line">
-            <Icon name="check" size={18} /> 班會已完成，去看看「觀察影響」。
+      </div>
+    );
+    // 提案討論的子階段：一次只顯示一張任務卡
+    const sub = !m.seconded ? "second" : m.heard.length < 3 || m.speaker || m.queue.length || !triggerDone("quiet") ? "talk" : !predictionsDone ? "predict" : !m.voted ? "vote" : "minority";
+    const cards = ARGUMENTS.filter((a) => ext.cards.includes(a.id));
+    let task: React.ReactNode = null;
+    if (m.done)
+      task = (
+        <p className="success-line">
+          <Icon name="check" size={18} /> 班會已完成，去看看「影響」。
+        </p>
+      );
+    else if (m.step !== 3)
+      task = (
+        <div className="task-card">
+          <h3 className="task-title">
+            程序 {m.step + 1}：{meetingSteps[m.step]}
+          </h3>
+          <p className="small">{pendingDecision(m.step) ? "先在左邊的對話框選擇你的做法。" : "按下方按鈕完成這個程序。"}</p>
+          {m.step === 4 && (
+            <Field
+              label="臨時動議紀錄（沒有可填無）"
+              rows={1}
+              value={m.minutes}
+              onChange={(v) =>
+                update((d) => {
+                  d.meeting.minutes = v;
+                })
+              }
+            />
+          )}
+        </div>
+      );
+    else if (sub === "second")
+      task = (
+        <div className="task-card">
+          <h3 className="task-title">提案討論 1／5：徵求附議</h3>
+          <p className="proposal-show">
+            <b>提案：</b>
+            {s.proposal.plan}
           </p>
-        ) : (
-          <>
-            {resultCard}
-            {madeList(m.step)}
-            {m.step === 3 && (
-              <div className="discussion">
-                <h3 className="sub-title">提案討論</h3>
-                <p className="proposal-show">
-                  <b>提案：</b>
-                  {s.proposal.plan}
-                </p>
-                <button
-                  className={`btn ${m.seconded ? "btn-done" : "btn-soft"}`}
-                  disabled={m.seconded}
-                  onClick={() => {
-                    sfx.play("hand");
-                    update((d) => {
-                      d.meeting.seconded = true;
-                    });
-                    notify("小米已附議，現在邀請大家舉手。");
-                  }}
-                >
-                  <Icon name={m.seconded ? "check" : "hand"} size={20} />
-                  {m.seconded ? "已附議" : "徵求附議"}
-                </button>
-                <div className="queue">
-                  <span className="small">想發言的同學（點教室裡的人，或這裡）：</span>
-                  <div className="queue-people">
-                    {(["mi", "hao", "zhe"] as CharacterId[]).map((id) => (
-                      <button key={id} className={`person-chip ${m.heard.includes(id) ? "is-done" : m.queue.includes(id) ? "is-queued" : ""}`} disabled={m.voted} onClick={() => invite(id)}>
-                        <Portrait look={id} size={34} />
-                        <span>
-                          {NAME[id]}
-                          <small>{m.heard.includes(id) ? "已發言" : m.speaker === id ? "發言中" : m.queue.includes(id) ? `舉手第${m.queue.indexOf(id) + 1}位` : "舉手申請"}</small>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                  <button className="btn btn-soft wide" disabled={m.voted} onClick={grant}>
-                    <Icon name="hand" size={20} /> {role === "chair" ? "主席同意下一位發言" : "主席請下一位發言"}
-                  </button>
+          <button
+            className="btn btn-primary wide"
+            onClick={() => {
+              sfx.play("hand");
+              update((d) => {
+                d.meeting.seconded = true;
+              });
+              notify("小米已附議，現在邀請大家舉手。");
+            }}
+          >
+            <Icon name="hand" size={20} /> 徵求附議
+          </button>
+        </div>
+      );
+    else if (sub === "talk")
+      task = (
+        <div className="task-card">
+          <h3 className="task-title">提案討論 2／5：輪流發言</h3>
+          <p className="small">點想發言的同學舉手，再請主席依順序同意。</p>
+          <div className="queue-people">
+            {(["mi", "hao", "zhe"] as CharacterId[]).map((id) => (
+              <button key={id} className={`person-chip ${m.heard.includes(id) ? "is-done" : m.queue.includes(id) ? "is-queued" : ""}`} onClick={() => invite(id)}>
+                <Portrait look={id} size={34} />
+                <span>
+                  {NAME[id]}
+                  <small>{m.heard.includes(id) ? "已發言" : m.speaker === id ? "發言中" : m.queue.includes(id) ? `舉手第${m.queue.indexOf(id) + 1}位` : "舉手申請"}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+          <button className="btn btn-primary wide" onClick={grant}>
+            <Icon name="hand" size={20} /> {role === "chair" ? "主席同意下一位發言" : "主席請下一位發言"}
+          </button>
+        </div>
+      );
+    else if (sub === "predict")
+      task = (
+        <div className="task-card">
+          <h3 className="task-title">提案討論 3／5：預測影響</h3>
+          <p className="small">每個方案，誰最可能覺得不方便？</p>
+          {PLAN_IDS.map((p, i) => {
+            const v = ext.predictions[p];
+            const ok = v ? checkPrediction(p, v) : false;
+            return (
+              <div key={p} className="predict-row">
+                <b>
+                  {p}. {plans[i]}
+                </b>
+                <div className="predict-options" role="group" aria-label={`方案${p}的影響預測`}>
+                  {STAKEHOLDERS.map((st) => (
+                    <button
+                      key={st.id}
+                      className={`chip ${v === st.id ? (ok ? "is-ok" : "is-think") : ""}`}
+                      aria-pressed={v === st.id}
+                      onClick={() => {
+                        const good = checkPrediction(p, st.id);
+                        sfx.play(good ? "success" : "invalid");
+                        updateExt((x) => {
+                          x.predictions[p] = st.id;
+                        });
+                        notify(good ? PREDICTION_KEY[p].why : "再想想：這個方案改變了什麼？誰的需要比較難被照顧？");
+                      }}
+                    >
+                      {st.label}
+                    </button>
+                  ))}
                 </div>
-                {ext.cards.length > 0 && (
-                  <div className="arg-cards">
-                    <h3 className="sub-title">論點卡（{ext.cards.length}）</h3>
-                    {ARGUMENTS.filter((a) => ext.cards.includes(a.id)).map((a) => (
-                      <div key={a.id} className={`arg-card plan-${a.plan ?? "all"}`}>
-                        <div className="arg-who">
-                          <Portrait look={a.who === "yun" ? "npc9" : a.who === "me" ? "player" : a.who} size={30} />
-                          <b>{a.who === "me" ? me : a.name}</b>
-                          <span className="arg-plan">{a.plan ? `方案${a.plan}` : "共同提醒"}</span>
-                        </div>
-                        <p>
-                          <span className="arg-k">主張</span>
-                          {a.claim}
-                        </p>
-                        <p>
-                          <span className="arg-k">理由</span>
-                          {a.reason}
-                        </p>
-                        <p>
-                          <span className="arg-k impact">可能影響</span>
-                          {a.impact}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {triggerDone("quiet") && m.heard.length >= 3 && (
-                  <div className="predict">
-                    <h3 className="sub-title">影響預測：哪一種同學最可能覺得不方便？</h3>
-                    {PLAN_IDS.map((p, i) => {
-                      const v = ext.predictions[p];
-                      const ok = v ? checkPrediction(p, v) : false;
-                      return (
-                        <div key={p} className="predict-row">
-                          <b>
-                            {p}. {plans[i]}
-                          </b>
-                          <div className="predict-options" role="group" aria-label={`方案${p}的影響預測`}>
-                            {STAKEHOLDERS.map((st) => (
-                              <button
-                                key={st.id}
-                                className={`chip ${v === st.id ? (ok ? "is-ok" : "is-think") : ""}`}
-                                aria-pressed={v === st.id}
-                                disabled={m.voted}
-                                onClick={() => {
-                                  const good = checkPrediction(p, st.id);
-                                  sfx.play(good ? "success" : "invalid");
-                                  updateExt((x) => {
-                                    x.predictions[p] = st.id;
-                                  });
-                                  notify(good ? PREDICTION_KEY[p].why : "再想想：這個方案改變了什麼？誰的需要比較難被照顧？");
-                                }}
-                              >
-                                {st.label}
-                              </button>
-                            ))}
-                          </div>
-                          {v && <small className={ok ? "ok-text" : "think-text"}>{ok ? PREDICTION_KEY[p].why : "可以再想想，也可以改選。"}</small>}
-                        </div>
-                      );
-                    })}
-                    <p className="small muted">每個方案都有優點和限制，沒有唯一的標準答案。</p>
-                  </div>
-                )}
-                <button className="btn btn-primary wide" disabled={m.voted || !!counting} onClick={vote}>
-                  <Icon name="hand" size={20} /> {m.voted ? "已完成表決" : counting ? "計票中…" : "進行教材示範表決"}
-                </button>
-                {(m.voted || counting) && (
-                  <div className="votes">
-                    <p className="sim-note">教材固定示範・共28票・不是實際學生投票結果</p>
-                    {plans.map((v, i) => (
-                      <div key={v} className={`vote-row ${m.voted && i === 1 ? "is-win" : ""}`}>
-                        <span>
-                          {["A", "B", "C"][i]}. {v}
-                        </span>
-                        <meter aria-label={v} max={28} value={counting ? counting[i] : sampleVotes[i]} />
-                        <b>{counting ? counting[i] : sampleVotes[i]} 票</b>
-                      </div>
-                    ))}
-                    {m.voted && (
-                      <p className="success-line">
-                        <Icon name="flag" size={18} /> 決議：閱讀角分成安靜區和討論區。
-                      </p>
-                    )}
-                  </div>
-                )}
-                {m.voted && (
-                  <div className="minority">
-                    <h3 className="sub-title">服從多數，也尊重少數</h3>
-                    <p className="small">小米還擔心太吵。可以怎麼照顧少數？（可以選很多個）</p>
-                    <div className="measure-list">
-                      {MEASURES.map((ms) => (
-                        <button key={ms.id} className={`measure ${ext.measures.includes(ms.id) ? (ms.good ? "is-on" : "is-bad") : ""}`} aria-pressed={ext.measures.includes(ms.id)} onClick={() => toggleMeasure(ms.id)}>
-                          <Icon name={ext.measures.includes(ms.id) ? "check" : "starOutline"} size={18} />
-                          {ms.label}
-                        </button>
-                      ))}
-                    </div>
-                    <Field
-                      label="小米還擔心太吵，你會如何照顧少數？"
-                      value={m.minority}
-                      placeholder="選擇上面的做法，或自己寫"
-                      onChange={(v) =>
-                        update((d) => {
-                          d.meeting.minority = v;
-                        })
-                      }
-                    />
-                  </div>
-                )}
               </div>
-            )}
-            {m.step === 4 && (
-              <Field
-                label="臨時動議紀錄（沒有可填無）"
-                value={m.minutes}
-                onChange={(v) =>
-                  update((d) => {
-                    d.meeting.minutes = v;
-                  })
-                }
-              />
-            )}
-          </>
+            );
+          })}
+        </div>
+      );
+    else if (sub === "vote")
+      task = (
+        <div className="task-card">
+          <h3 className="task-title">提案討論 4／5：表決</h3>
+          <div className="votes">
+            {plans.map((v, i) => (
+              <div key={v} className="vote-row">
+                <span>
+                  {["A", "B", "C"][i]}. {v}
+                </span>
+                <meter aria-label={v} max={28} value={counting ? counting[i] : 0} />
+                <b>{counting ? counting[i] : "–"} 票</b>
+              </div>
+            ))}
+          </div>
+          <button className="btn btn-primary wide" disabled={!!counting} onClick={vote}>
+            <Icon name="hand" size={20} /> {counting ? "計票中…" : "進行教材示範表決"}
+          </button>
+          <p className="sim-note">教材固定示範・共28票・不是實際學生投票結果</p>
+        </div>
+      );
+    else
+      task = (
+        <div className="task-card">
+          <h3 className="task-title">提案討論 5／5：尊重少數</h3>
+          <p className="success-line small-line">
+            <Icon name="flag" size={16} /> 決議：分區（6／18／4 票）
+          </p>
+          <p className="small">小米還擔心太吵。可以怎麼照顧少數？（可複選）</p>
+          <div className="measure-list">
+            {MEASURES.map((ms) => (
+              <button key={ms.id} className={`measure ${ext.measures.includes(ms.id) ? (ms.good ? "is-on" : "is-bad") : ""}`} aria-pressed={ext.measures.includes(ms.id)} onClick={() => toggleMeasure(ms.id)}>
+                <Icon name={ext.measures.includes(ms.id) ? "check" : "starOutline"} size={18} />
+                {ms.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    body = (
+      <>
+        {roleChip}
+        {resultCard}
+        {task}
+        {m.step === 3 && !m.done && cards.length > 0 && (
+          <div className="card-strip" aria-label="論點卡">
+            <span className="small">論點卡</span>
+            {cards.map((a) => (
+              <button key={a.id} className={`card-chip plan-${a.plan ?? "all"}`} onClick={() => setCardOpen(a.id)} aria-label={`查看${a.who === "me" ? me : a.name}的論點卡`}>
+                <Portrait look={a.who === "yun" ? "npc9" : a.who === "me" ? "player" : a.who} size={26} />
+                {a.plan ?? "＊"}
+              </button>
+            ))}
+          </div>
         )}
       </>
     );
@@ -1118,47 +1096,27 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
     const ending = roleEnding(role, ext.choices, ext.measures, topic ?? "proposal");
     body = (
       <>
-        <h2 className="mission-title">觀察：我的決定帶來什麼影響？</h2>
         {!finished && <TaskHint icon="lock">完成{topic === "election" ? "選舉" : "班會"}後，這裡會模擬接下來一週的情形。</TaskHint>}
         {finished && (
-          <div className={`ending-card level-${ending.level}`}>
-            <div className="ending-head">
-              <Portrait look="player" mood={ending.level === "low" ? "thinking" : "happy"} size={48} />
-              <div>
-                <small>{TOPICS.find((t) => t.id === topic)?.title}</small>
-                <b>
-                  {me}（{roleInfo.name}）
-                </b>
-              </div>
-              <span className="ending-stars" aria-label={`好做法 ${ending.good}／${ending.total}`}>
-                {[0, 1, 2].map((i) => (
-                  <Icon key={i} name={i < (ending.level === "high" ? 3 : ending.level === "mid" ? 2 : 1) ? "star" : "starOutline"} size={20} />
-                ))}
-              </span>
-            </div>
-            <p>{ending.text}</p>
-          </div>
-        )}
-        <h3 className="sub-title">我做的決定</h3>
-        <ul className="decision-log">
-          {made.map((d) => {
-            const o = d.options.find((x) => x.id === ext.choices[d.id])!;
-            return (
-              <li key={d.id} className={o.good ? "is-good" : "is-think"}>
-                <Icon name={o.good ? "check" : "bulb"} size={16} />
-                <div>
-                  <b>{(topic === "election" ? TOPICS[0].steps : meetingSteps)[d.step]}：</b>
-                  {o.label}
-                  <small>{o.result}</small>
-                </div>
-              </li>
-            );
-          })}
-          {made.length === 0 && <li className="muted">還沒有做出決定。</li>}
-        </ul>
-        {finished && (
           <>
-            <h3 className="sub-title">{topic === "election" ? "選舉後的一週（模擬）" : "一週試行模擬（決議：分區）"}</h3>
+            <div className={`ending-card level-${ending.level}`}>
+              <div className="ending-head">
+                <Portrait look="player" mood={ending.level === "low" ? "thinking" : "happy"} size={44} />
+                <div>
+                  <small>{TOPICS.find((t) => t.id === topic)?.title}</small>
+                  <b>
+                    {me}（{roleInfo.name}）
+                  </b>
+                </div>
+                <span className="ending-stars" aria-label={`好做法 ${ending.good}／${ending.total}`}>
+                  {[0, 1, 2].map((i) => (
+                    <Icon key={i} name={i < (ending.level === "high" ? 3 : ending.level === "mid" ? 2 : 1) ? "star" : "starOutline"} size={20} />
+                  ))}
+                </span>
+              </div>
+              <p>{ending.text}</p>
+            </div>
+            <h3 className="sub-title">{topic === "election" ? "選舉後的一週（模擬）" : "閱讀角試行一週（模擬）"}</h3>
             <div className="week-strip" role="group" aria-label="一週模擬">
               {week.map((d, i) => (
                 <button
@@ -1180,7 +1138,9 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
               <b>{week[dayIdx].day}：</b>
               {week[dayIdx].text}
             </p>
-            <p className="small">一週有 {weekScore(week)} 天是笑臉。這是依你的決定做的模擬，真實班級還要實際試行。</p>
+            <button className="btn btn-soft wide" onClick={() => setLogOpen(true)}>
+              <Icon name="clue" size={18} /> 看看我做的 {made.length} 個決定
+            </button>
           </>
         )}
       </>
@@ -1196,27 +1156,41 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
     const now = simulateWeek("B", ext.measures, ext.choices);
     const changed = labMeasures.slice().sort().join() !== ext.measures.filter((x) => x !== "ignore").sort().join();
     const thinkOnes = myDecisions.filter((d) => ext.choices[d.id] && !d.options.find((o) => o.id === ext.choices[d.id])!.good);
+    const tabsR: [typeof reflectTab, string][] = [
+      ["redo", "如果重來"],
+      ...(topic === "proposal" ? ([["lab", "實驗室"]] as [typeof reflectTab, string][]) : []),
+      ["write", "寫反思"],
+    ];
     body = (
       <>
-        <h2 className="mission-title">修正與反思</h2>
         {!finished && <TaskHint icon="lock">完成後才能修正與反思。</TaskHint>}
         {finished && (
           <>
-            {thinkOnes.length > 0 && (
-              <Callout kind="radar" title="如果重來一次……">
-                {thinkOnes.map((d) => {
-                  const better = d.options.find((o) => o.good)!;
-                  return (
-                    <p key={d.id} className="small">
-                      「{d.question}」可以試試：<b>{better.label}</b>。{better.result}
-                    </p>
-                  );
-                })}
-              </Callout>
+            <div className="seg sub-tabs" role="tablist" aria-label="修正與反思">
+              {tabsR.map(([id, l]) => (
+                <button key={id} role="tab" aria-selected={reflectTab === id} className={reflectTab === id ? "is-on" : ""} onClick={() => setReflectTab(id)}>
+                  {l}
+                </button>
+              ))}
+            </div>
+            {reflectTab === "redo" && (
+              <div className="task-card">
+                {thinkOnes.length === 0 ? (
+                  <p>你每一步都選了很好的做法！可以換一個角色，看看別人會遇到什麼狀況。</p>
+                ) : (
+                  thinkOnes.slice(0, 3).map((d) => {
+                    const better = d.options.find((o) => o.good)!;
+                    return (
+                      <p key={d.id} className="redo-line">
+                        <Icon name="bulb" size={16} /> 「{d.question}」可以試試：<b>{better.label}</b>
+                      </p>
+                    );
+                  })
+                )}
+              </div>
             )}
-            {topic === "proposal" && (
-              <Callout kind="detective" title="模擬實驗室：換一種方案或做法">
-                <p className="small">比較一週的結果。這是模擬，不是真實結果。</p>
+            {reflectTab === "lab" && topic === "proposal" && (
+              <div className="task-card">
                 <div className="lab-plans" role="group" aria-label="選擇方案">
                   {PLAN_IDS.map((p, i) => (
                     <button
@@ -1241,19 +1215,17 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
                     </label>
                   ))}
                 </div>
-                <div className="lab-result">
+                <div className="lab-faces" aria-label="實驗結果">
                   {lab.map((d) => (
-                    <div key={d.day} className={`lab-day mood-${d.mood}`}>
-                      <Icon name={d.mood === "happy" ? "faceHappy" : d.mood === "ok" ? "faceOk" : "faceSad"} size={20} />
-                      <span>
-                        <b>{d.day.slice(2)}</b> {d.text}
-                      </span>
-                    </div>
+                    <span key={d.day} className={`lab-face mood-${d.mood}`} title={d.text}>
+                      <Icon name={d.mood === "happy" ? "faceHappy" : d.mood === "ok" ? "faceOk" : "faceSad"} size={24} />
+                      {d.day.slice(2)}
+                    </span>
                   ))}
-                  <p className="small">
-                    笑臉：實驗 {weekScore(lab)} 天／目前決議 {weekScore(now)} 天
-                  </p>
                 </div>
+                <p className="small">
+                  笑臉：實驗 {weekScore(lab)} 天／目前決議 {weekScore(now)} 天（模擬）
+                </p>
                 <button
                   className="btn btn-soft wide"
                   disabled={!changed || labMeasures.length === 0}
@@ -1265,37 +1237,35 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
                       d.meeting.minority = minoritySentence(labMeasures);
                     });
                     sfx.play("success");
-                    notify("已修正照顧少數的做法，回到「觀察影響」看看新的一週。");
+                    notify("已修正照顧少數的做法，回到「影響」看看新的一週。");
                   }}
                 >
                   <Icon name="check" size={20} /> 採用這些做法，修正決議
                 </button>
-              </Callout>
+              </div>
             )}
-            <Field
-              label="我的反思：在班會中，我學到什麼？"
-              value={ext.reflection}
-              rows={3}
-              placeholder="例如：表決以後，也要問問少數同學還有什麼困難。"
-              onChange={(v) =>
-                updateExt((x) => {
-                  x.reflection = v;
-                })
-              }
-            />
-            <PhraseChips
-              label="反思引導句"
-              phrases={["發言前要先舉手", "提名要說理由", "平票可以再表決", "服從多數也要尊重少數", "對事不對人"]}
-              onPick={(p) =>
-                updateExt((x) => {
-                  x.reflection = x.reflection ? `${x.reflection}；${p}` : p;
-                })
-              }
-            />
-            {topic === "proposal" && (
-              <div className="feedback">
-                <h3>會議紀錄</h3>
-                <pre>{m.minutes}</pre>
+            {reflectTab === "write" && (
+              <div className="task-card">
+                <Field
+                  label="我的反思：在班會中，我學到什麼？"
+                  value={ext.reflection}
+                  rows={3}
+                  placeholder="例如：表決以後，也要問問少數同學還有什麼困難。"
+                  onChange={(v) =>
+                    updateExt((x) => {
+                      x.reflection = v;
+                    })
+                  }
+                />
+                <PhraseChips
+                  label="反思引導句"
+                  phrases={["發言前要先舉手", "提名要說理由", "平票可以再表決", "服從多數也要尊重少數", "對事不對人"]}
+                  onPick={(p) =>
+                    updateExt((x) => {
+                      x.reflection = x.reflection ? `${x.reflection}；${p}` : p;
+                    })
+                  }
+                />
               </div>
             )}
           </>
@@ -1310,7 +1280,7 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
         {finished && (
           <>
             <button className="btn btn-soft" onClick={() => resetTopic(true)}>
-              <Icon name="reset" size={20} /> 同角色重玩
+              <Icon name="reset" size={20} /> 重玩
             </button>
             <button
               className="btn btn-primary"
@@ -1352,6 +1322,54 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
               : `${cls}・${me}`}
       </div>
       {dialogue && <div className="dialogue-slot">{dialogue}</div>}
+      {cardOpen &&
+        (() => {
+          const a = ARGUMENTS.find((x) => x.id === cardOpen)!;
+          return (
+            <Overlay title={`${a.who === "me" ? me : a.name}的論點卡`} icon="clue" onClose={() => setCardOpen(null)}>
+              <div className={`arg-card plan-${a.plan ?? "all"}`}>
+                <div className="arg-who">
+                  <Portrait look={a.who === "yun" ? "npc9" : a.who === "me" ? "player" : a.who} size={40} />
+                  <b>{a.who === "me" ? me : a.name}</b>
+                  <span className="arg-plan">{a.plan ? `方案${a.plan}` : "共同提醒"}</span>
+                </div>
+                <p>
+                  <span className="arg-k">主張</span>
+                  {a.claim}
+                </p>
+                <p>
+                  <span className="arg-k">理由</span>
+                  {a.reason}
+                </p>
+                <p>
+                  <span className="arg-k impact">可能影響</span>
+                  {a.impact}
+                </p>
+              </div>
+            </Overlay>
+          );
+        })()}
+      {logOpen && (
+        <Overlay title="我做的決定" icon="clue" wide onClose={() => setLogOpen(false)}>
+          <ul className="decision-log">
+            {myDecisions
+              .filter((d) => ext.choices[d.id])
+              .map((d) => {
+                const o = d.options.find((x) => x.id === ext.choices[d.id])!;
+                return (
+                  <li key={d.id} className={o.good ? "is-good" : "is-think"}>
+                    <Icon name={o.good ? "check" : "bulb"} size={16} />
+                    <div>
+                      <b>{(topic === "election" ? TOPICS[0].steps : meetingSteps)[d.step]}：</b>
+                      {o.label}
+                      <small>{o.result}</small>
+                    </div>
+                  </li>
+                );
+              })}
+          </ul>
+        </Overlay>
+      )}
       {done && (
         <Completion
           title={done === "election" ? "選舉完成！" : "班會完成！"}

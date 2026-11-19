@@ -12,6 +12,7 @@ import { type CastMember } from "../scenes/Classroom";
 import { MeetingScene } from "../scenes3d/MeetingScene";
 import { Icon } from "../components/icons";
 import { Overlay, Toast } from "../components/ui";
+import { MicButton } from "../components/VoiceInput";
 import { Portrait, type Mood } from "../art/Character";
 import { PrefsProvider, usePrefs } from "../ui/prefs";
 import { sfx } from "../ui/sfx";
@@ -19,7 +20,7 @@ import "@fontsource/bpmf-huninn/400.css";
 import "../ui/tokens.css";
 import "./styles.css";
 
-type OverlayId = null | "pause" | "settings" | "help" | "chapters" | "teacher" | "sheets" | "handbook" | "profile";
+type OverlayId = null | "pause" | "settings" | "help" | "chapters" | "teacher" | "sheets" | "handbook";
 
 const CHAPTERS: { id: Chapter; topic: "election" | "proposal" | null; title: string; text: string; pages: string }[] = [
   { id: "topic", topic: null, title: "選主題與角色", text: "選擇要討論的主題，並扮演主席、司儀、記錄或學生。", pages: "課本 p.7" },
@@ -60,6 +61,7 @@ function App() {
   const [wipe, setWipe] = useState(false);
   const [startChapter, setStartChapter] = useState<Chapter | null>(null);
   const [mountKey, setMountKey] = useState(0);
+  const [intro, setIntro] = useState(0);
 
   function update(fn: (draft: Progress) => void) {
     setS((prev) => {
@@ -172,13 +174,19 @@ function App() {
           ext={ext}
           updateExt={updateExt}
           started={started}
-          onStart={() => navigate("meeting", "topic")}
+          onStart={() => {
+            sfx.startMusic();
+            sfx.schoolBell();
+            navigate("meeting", "topic");
+            setIntro(1);
+          }}
           onContinue={() => navigate("meeting")}
           open={setOverlay}
           notify={notify}
         />
       )}
       <Toast message={message} />
+      {intro > 0 && s.scene !== "home" && <Intro step={intro} ext={ext} onNext={() => setIntro((i) => (i >= 3 ? 0 : i + 1))} onSkip={() => setIntro(0)} />}
       {wipe && <div className="wipe" aria-hidden="true" />}
 
       {overlay === "pause" && (
@@ -207,21 +215,6 @@ function App() {
       )}
       {overlay === "settings" && <Settings onClose={() => setOverlay(null)} />}
       {overlay === "handbook" && <Handbook onClose={() => setOverlay(null)} />}
-      {overlay === "profile" && (
-        <Overlay title="修改班級與名字" icon="teacher" onClose={() => setOverlay(null)}>
-          <ProfileForm
-            ext={ext}
-            onSave={(c, n) => {
-              updateExt((x) => {
-                x.className = c;
-                x.playerName = n;
-              });
-              setOverlay(null);
-              notify(`歡迎，${n}！`);
-            }}
-          />
-        </Overlay>
-      )}
       {overlay === "help" && <Help onClose={() => setOverlay(null)} />}
       {overlay === "chapters" && (
         <Overlay title="選擇章節" icon="map" wide onClose={() => setOverlay(null)}>
@@ -291,6 +284,7 @@ function Home({
 }) {
   const { prefs, setPrefs } = usePrefs();
   const [poke, setPoke] = useState<string | null>(null);
+  const ready = !!ext.className.trim() && !!ext.playerName.trim();
   const lines: Record<string, string> = {
     anan: `安安：${displayName(ext)}，今天的班會你想當什麼角色？`,
     mi: "小米：午休時，我想安安靜靜的看書。",
@@ -326,42 +320,94 @@ function Home({
           </h1>
           <p className="logo-sub">Classroom Quest・班會大挑戰</p>
         </div>
-        {!ext.playerName.trim() || !ext.className.trim() ? (
-          <>
-            <p className="home-intro">先告訴我們你的班級和名字，進入教室後就會用你的名字喔！</p>
-            <ProfileForm
-              ext={ext}
-              onSave={(c, n) => {
+        <div className="profile-inline" role="group" aria-label="我的資料">
+          <div className="field">
+            <div className="field-head">
+              <label className="field-label" htmlFor="my-class">
+                我的班級
+              </label>
+              <MicButton
+                label="我的班級"
+                onText={(t) =>
+                  updateExt((x) => {
+                    x.className = t.replace(/\s/g, "").slice(0, 12);
+                  })
+                }
+              />
+            </div>
+            <input
+              id="my-class"
+              className={ext.className ? "" : "is-empty"}
+              type="text"
+              value={ext.className}
+              maxLength={12}
+              placeholder="例如：三年二班"
+              autoComplete="off"
+              onChange={(e) => {
+                const v = e.target.value.slice(0, 12);
                 updateExt((x) => {
-                  x.className = c;
-                  x.playerName = n;
+                  x.className = v;
                 });
-                sfx.play("success");
-                notify(`歡迎來到${c}，${n}！`);
               }}
             />
-          </>
-        ) : (
-          <>
+          </div>
+          <div className="field">
+            <div className="field-head">
+              <label className="field-label" htmlFor="my-name">
+                我的名字
+              </label>
+              <MicButton
+                label="我的名字"
+                onText={(t) =>
+                  updateExt((x) => {
+                    x.playerName = t.replace(/\s/g, "").slice(0, 8);
+                  })
+                }
+              />
+            </div>
+            <input
+              id="my-name"
+              className={ext.playerName ? "" : "is-empty"}
+              type="text"
+              value={ext.playerName}
+              maxLength={8}
+              placeholder="例如：小明"
+              autoComplete="off"
+              onChange={(e) => {
+                const v = e.target.value.slice(0, 8);
+                updateExt((x) => {
+                  x.playerName = v;
+                });
+              }}
+            />
+          </div>
+        </div>
         <p className="home-intro">
-          歡迎來到<b>{displayClass(ext)}</b>，<b>{displayName(ext)}</b>！選一個討論主題和班會角色，看看每個決定會帶來什麼影響。
+          {ready ? (
+            <>
+              歡迎來到<b>{displayClass(ext)}</b>，<b>{displayName(ext)}</b>！
+            </>
+          ) : (
+            "先寫下你的班級和名字，進入教室後就會用你的名字喔！"
+          )}
         </p>
         <nav className="home-menu" aria-label="主選單">
-          <button className="btn btn-primary btn-big" onClick={onStart}>
+          <button className="btn btn-primary btn-big" disabled={!ready} onClick={onStart}>
             <Icon name="play" /> 開始探索
           </button>
-          <button className="btn btn-soft" disabled={!started} onClick={onContinue}>
-            <Icon name="next" /> 繼續遊戲
-          </button>
-          <button className="btn btn-soft" onClick={() => open("chapters")}>
-            <Icon name="map" /> 選擇章節
-          </button>
-          <button className="btn btn-soft" onClick={() => open("teacher")}>
-            <Icon name="teacher" /> 教師入口
-          </button>
+          <div className="home-menu-row">
+            <button className="btn btn-soft" disabled={!started || !ready} onClick={onContinue}>
+              <Icon name="next" /> 繼續
+            </button>
+            <button className="btn btn-soft" disabled={!ready} onClick={() => open("chapters")}>
+              <Icon name="map" /> 章節
+            </button>
+            <button className="btn btn-soft" onClick={() => open("teacher")}>
+              <Icon name="teacher" /> 教師
+            </button>
+          </div>
         </nav>
-          </>
-        )}
+        <p className="small muted privacy">班級和名字只存在這台裝置，不會上傳。</p>
         <div className="home-tools">
           <button className="icon-btn" aria-label={prefs.sound ? "關閉音效" : "開啟音效"} aria-pressed={prefs.sound} onClick={() => setPrefs((p) => ({ ...p, sound: !p.sound }))}>
             <Icon name={prefs.sound ? "sound" : "mute"} />
@@ -375,11 +421,6 @@ function Home({
           <button className="icon-btn" aria-label="班會小百科" onClick={() => open("handbook")}>
             <Icon name="note" />
           </button>
-          {ext.playerName && (
-            <button className="icon-btn" aria-label="修改班級與名字" onClick={() => open("profile")}>
-              <Icon name="teacher" />
-            </button>
-          )}
           <span className="home-status">
             {s.meeting.done ? (
               <>
@@ -409,6 +450,22 @@ function Settings({ onClose }: { onClose: () => void }) {
             <small>點擊、成功與完成的提示聲</small>
           </span>
           <input type="checkbox" className="switch" checked={prefs.sound} onChange={(e) => setPrefs((p) => ({ ...p, sound: e.target.checked }))} />
+        </label>
+        <label className="setting-row">
+          <span>
+            <b>背景音樂</b>
+            <small>輕柔的音樂盒旋律</small>
+          </span>
+          <input
+            type="checkbox"
+            className="switch"
+            checked={prefs.music}
+            onChange={(e) => {
+              const on = e.target.checked;
+              setPrefs((p) => ({ ...p, music: on }));
+              if (on) window.setTimeout(() => sfx.startMusic(), 50);
+            }}
+          />
         </label>
         <label className="setting-row">
           <span>
@@ -685,33 +742,38 @@ function Teacher({
 }
 
 /* ------------------------------------------------------------------ */
-/* 班級與名字（只存在這台裝置）                                         */
+/* 開場說明（上課鐘聲後）                                               */
 /* ------------------------------------------------------------------ */
-function ProfileForm({ ext, onSave }: { ext: MeetingExt; onSave: (cls: string, name: string) => void }) {
-  const [cls, setCls] = useState(ext.className);
-  const [name, setName] = useState(ext.playerName);
-  const ok = !!cls.trim() && !!name.trim();
+function Intro({ step, ext, onNext, onSkip }: { step: number; ext: MeetingExt; onNext: () => void; onSkip: () => void }) {
+  const me = displayName(ext);
+  const cls = displayClass(ext);
+  const slides: { mood: "happy" | "talking"; title: string; text: string }[] = [
+    { mood: "happy", title: "上課囉！", text: `噹——噹——噹——噹——${me}，歡迎來到${cls}！今天，我們要一起開班會。` },
+    { mood: "talking", title: "選主題、選角色", text: "你可以選「選舉班級幹部」或「班會提案」，再當主席、司儀、記錄或學生。每個角色會遇到不一樣的狀況。" },
+    { mood: "talking", title: "做決定、看影響", text: "對話框出現時，點一個你覺得好的做法。上面的儀表和同學的表情，會告訴你這個決定帶來什麼影響。" },
+  ];
+  const sl = slides[step - 1];
   return (
-    <form
-      className="profile-form"
-      onSubmit={(ev) => {
-        ev.preventDefault();
-        if (ok) onSave(cls.trim().slice(0, 12), name.trim().slice(0, 8));
-      }}
-    >
-      <label className="field">
-        <span className="field-label">我的班級</span>
-        <input type="text" value={cls} maxLength={12} placeholder="例如：三年二班" onChange={(e) => setCls(e.target.value)} autoComplete="off" />
-      </label>
-      <label className="field">
-        <span className="field-label">我的名字</span>
-        <input type="text" value={name} maxLength={8} placeholder="例如：小明" onChange={(e) => setName(e.target.value)} autoComplete="off" />
-      </label>
-      <button className="btn btn-primary btn-big" type="submit" disabled={!ok}>
-        <Icon name="play" /> 進入教室
-      </button>
-      <p className="small muted">班級和名字只會存在這台裝置，不會上傳。</p>
-    </form>
+    <div className="overlay intro-overlay">
+      <div className="overlay-card intro-card" role="dialog" aria-modal="true" aria-label="開場說明">
+        <Portrait look="teacher" mood={sl.mood} size={96} />
+        <div className="intro-dots" aria-hidden="true">
+          {slides.map((_, i) => (
+            <i key={i} className={i === step - 1 ? "on" : ""} />
+          ))}
+        </div>
+        <h2>{sl.title}</h2>
+        <p>{sl.text}</p>
+        <div className="foot-row">
+          <button className="btn btn-soft" onClick={onSkip}>
+            跳過說明
+          </button>
+          <button className="btn btn-primary" onClick={onNext} autoFocus>
+            {step >= slides.length ? "開始！" : "下一步"} <Icon name="next" size={20} />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

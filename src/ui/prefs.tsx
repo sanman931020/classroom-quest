@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { sfx } from "./sfx";
+import { startZhuyinFix } from "./zhuyin";
 
 /**
  * 介面偏好設定（音效、動態、低效能、教學提示）。
@@ -8,6 +9,8 @@ import { sfx } from "./sfx";
 export type MotionPref = "auto" | "reduce" | "full";
 export interface Prefs {
   sound: boolean;
+  /** 背景音樂 */
+  music: boolean;
   volume: number; // 0–1
   motion: MotionPref;
   lowPower: boolean;
@@ -21,6 +24,7 @@ export interface Prefs {
 const KEY = "classroom-quest-ui-v1";
 const defaults: Prefs = {
   sound: true,
+  music: true,
   volume: 0.6,
   motion: "auto",
   lowPower: false,
@@ -37,6 +41,7 @@ export function loadPrefs(): Prefs {
     const p = JSON.parse(raw) as Partial<Prefs>;
     return {
       sound: typeof p.sound === "boolean" ? p.sound : defaults.sound,
+      music: typeof p.music === "boolean" ? p.music : true,
       volume:
         typeof p.volume === "number" && p.volume >= 0 && p.volume <= 1
           ? p.volume
@@ -98,8 +103,24 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
     root.dataset.motion = prefs.motion;
     root.dataset.lowpower = prefs.lowPower ? "on" : "off";
     root.dataset.zhuyin = prefs.zhuyin ? "on" : "off";
-    sfx.configure(prefs.sound, prefs.volume);
+    sfx.configure(prefs.sound, prefs.volume, prefs.music);
   }, [prefs]);
+  // 背景音樂：第一次觸控／點擊後才開始（瀏覽器自動播放限制）
+  useEffect(() => {
+    if (!prefs.sound || !prefs.music) return;
+    const start = () => sfx.startMusic();
+    window.addEventListener("pointerdown", start, { once: true });
+    window.addEventListener("keydown", start, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", start);
+      window.removeEventListener("keydown", start);
+    };
+  }, [prefs.sound, prefs.music]);
+  // 注音模式：自動校正破音字讀音
+  useEffect(() => {
+    if (!prefs.zhuyin) return;
+    return startZhuyinFix(document.body);
+  }, [prefs.zhuyin]);
   const reduced =
     prefs.motion === "reduce" || (prefs.motion === "auto" && systemReduce);
   return (

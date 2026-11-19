@@ -596,3 +596,85 @@ button.marker3d { cursor: pointer; }
 .step-tab { font-size: 0.85rem; }
 :root[data-zhuyin="on"] .step-label, :root[data-zhuyin="on"] .meter span { letter-spacing: -0.02em; }
 :root[data-zhuyin="on"] .logo h1 { font-size: clamp(1.8rem, 3.2vw, 2.4rem); white-space: nowrap; }
+
+/* ================= 單一任務卡（不需捲動） ================= */
+.task-card { display: grid; gap: var(--sp-2); padding: var(--sp-3); border-radius: var(--r-lg); background: #fff; border: 2px solid var(--c-paper-edge); box-shadow: var(--sh-paper-1); animation: card-in var(--t-slow) var(--ease-out) both; }
+.task-card.warn { background: var(--c-mustard-light); border-color: #ead9a6; }
+.task-title { font-family: var(--font-story); font-size: var(--fs-md); color: var(--c-forest); }
+.role-picker { grid-template-columns: 1fr 1fr; }
+.role-card { padding: var(--sp-2); gap: var(--sp-2); }
+.role-card b { font-size: var(--fs-md); }
+.role-card small { font-size: 0.82rem; }
+.role-tip { padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: var(--c-coral-light); font-size: 0.95rem; }
+.topic-picker { grid-template-columns: 1fr 1fr; }
+.topic-card b { font-size: var(--fs-md); }
+.big-choices { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.person-big {
+  display: grid; justify-items: center; gap: 2px; padding: var(--sp-2); min-height: 120px; border-radius: var(--r-lg);
+  border: 3px solid var(--c-paper-edge); background: var(--c-paper-light); font-size: var(--fs-md);
+  transition: transform var(--t-fast) var(--ease-bounce), border-color var(--t-fast);
+}
+.person-big:not(:disabled):active { transform: scale(0.96); }
+.person-big.is-on { border-color: var(--c-coral); background: var(--c-coral-light); box-shadow: var(--sh-glow-select); }
+.person-big:disabled { opacity: 1; }
+.vote-num { font-weight: 900; color: var(--c-coral-deep); }
+.note-line { display: flex; gap: 6px; align-items: flex-start; font-size: 0.9rem; color: var(--c-mustard-deep); }
+.role-line { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; }
+.role-pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 12px 2px 2px; border-radius: var(--r-pill); background: var(--c-coral-light); font-weight: 700; }
+.agenda-dots { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; }
+.agenda-dot { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--c-paper-edge); background: #fff; font-weight: 800; font-size: 0.85rem; display: grid; place-items: center; }
+.agenda-dots li.is-current .agenda-dot { background: var(--c-mustard); color: #fff; border-color: var(--c-mustard); }
+.agenda-dots li.is-done .agenda-dot { background: var(--c-teal); color: #fff; border-color: var(--c-teal); }
+.card-strip { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.card-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 2px 10px 2px 2px; border-radius: var(--r-pill); border: 2px solid var(--c-paper-edge); background: #fff; font-weight: 800; border-top-width: 4px; }
+.card-chip.plan-A { border-top-color: var(--c-teal); }
+.card-chip.plan-B { border-top-color: var(--c-coral); }
+.card-chip.plan-C { border-top-color: var(--c-mustard); }
+.small-line { font-size: 0.92rem; }
+.sub-tabs { width: 100%; }
+.sub-tabs button { flex: 1; }
+.redo-line { display: flex; gap: 6px; align-items: flex-start; font-size: 0.95rem; }
+.lab-faces { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.lab-face { display: grid; justify-items: center; font-size: 0.8rem; font-weight: 700; padding: 4px; border-radius: var(--r-sm); background: var(--c-paper); }
+.lab-face.mood-happy .icon { color: var(--c-success); }
+.lab-face.mood-ok .icon { color: var(--c-mustard-deep); }
+.lab-face.mood-sad .icon { color: var(--c-coral-deep); }
+.predict-row { padding: 6px var(--sp-2); }
+.measure { min-height: 44px; }
+.queue-people { gap: 4px; }
+.person-chip { min-height: 78px; }
+
+/* 首頁：我的班級／我的名字直接顯示 */
+.profile-inline { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.profile-inline input { min-height: 46px; padding: 8px 10px; font-size: var(--fs-md); }
+.home-menu-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); }
+.home-menu-row .btn { justify-content: center; padding: 8px 6px; }
+.home-panel { gap: var(--sp-3); max-height: calc(100dvh - 32px); overflow-y: auto; }
+.privacy { font-size: 0.8rem; }
+
+/* 開場說明 */
+.intro-card { text-align: center; justify-items: center; width: min(480px, 100%); }
+.intro-card .portrait { border-radius: 50%; background: var(--c-teal-light); border: 4px solid #fff; box-shadow: var(--sh-paper-2); }
+.intro-card h2 { font-family: var(--font-story); font-size: var(--fs-xl); color: var(--c-forest); }
+.intro-card p { font-size: var(--fs-md); }
+.intro-card .foot-row { width: 100%; }
+.intro-dots { display: flex; gap: 6px; }
+.intro-dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--c-paper-deep); }
+.intro-dots i.on { background: var(--c-coral); width: 24px; border-radius: 5px; }
+
+/* 待填欄位：淡色範例字＋柔和閃爍框，讓學生知道要自己填 */
+input::placeholder, textarea::placeholder { color: #b9b1a2; opacity: 1; }
+input.is-empty, textarea.is-empty { border-color: var(--c-mustard); background: #fffdf3; animation: fill-me 2.2s ease-in-out infinite; }
+input.is-empty:focus, textarea.is-empty:focus { animation: none; }
+@keyframes fill-me { 50% { box-shadow: 0 0 0 4px rgba(214, 181, 99, 0.35); } }
+
+/* 語音輸入 */
+.field-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 30px; }
+.mic-wrap { display: inline-flex; align-items: center; gap: 6px; }
+.mic-btn {
+  display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
+  border: 2px solid var(--c-teal); background: #fff; color: var(--c-teal-deep);
+}
+.mic-btn.is-on { background: var(--c-coral); border-color: var(--c-coral); color: #fff; animation: pulse 1s ease-in-out infinite; }
+.mic-msg { font-size: 0.8rem; color: var(--c-coral-deep); max-width: 10em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-inline .field-head { min-height: 44px; }

@@ -1,3 +1,5 @@
+import { useId } from "react";
+import { MicButton } from "./VoiceInput";
 import type { CharacterId, Progress } from "../game/types";
 import { Portrait, type Mood } from "../art/Character";
 export type ActivityProps = {
@@ -44,22 +46,32 @@ export function Field({
   onChange,
   placeholder = "",
   rows = 2,
+  voice = true,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   rows?: number;
+  voice?: boolean;
 }) {
+  const id = useId();
   return (
-    <label className="field">
-      <span className="field-label">{label}</span>
+    <div className="field">
+      <div className="field-head">
+        <label className="field-label" htmlFor={id}>
+          {label}
+        </label>
+        {voice && <MicButton label={label} onText={(t) => onChange(value ? `${value}${t}` : t)} />}
+      </div>
       <textarea
+        id={id}
         rows={rows}
         value={value}
         placeholder={placeholder}
+        className={value ? "" : "is-empty"}
         onChange={(e) => onChange(e.target.value)}
       />
-    </label>
+    </div>
   );
 }

@@ -113,3 +113,22 @@ describe("班會紀錄儲存（不改 Progress v1）", () => {
     expect(DECISIONS.length).toBeGreaterThan(0);
   });
 });
+
+describe("注音破音字", () => {
+  it("詞彙讀音：班長、角色、重新、數一數、覺得、因為、謝謝", async () => {
+    const { annotate, stripVS, WORDS } = await import("../src/ui/zhuyin");
+    const vs = (n: number) => String.fromCodePoint(0xe01e0 + n);
+    expect(annotate("選舉班長")).toBe(`選舉班長${vs(1)}`);
+    expect(annotate("選擇角色")).toBe(`選擇角${vs(1)}色`);
+    expect(annotate("重新演練")).toBe(`重${vs(1)}新演練`);
+    expect(annotate("一邊數")).toBe(`一邊數${vs(1)}`);
+    expect(annotate("我覺得")).toBe(`我覺得${vs(1)}`);
+    expect(annotate("謝謝大家")).toBe(`謝謝${vs(1)}大家`);
+    expect(annotate("長處")).toBe(`長處${vs(1)}`);
+    // 可重複套用、可移除
+    expect(annotate(annotate("班長"))).toBe(annotate("班長"));
+    expect(stripVS(annotate("因為班長"))).toBe("因為班長");
+    // 每個詞的索引數量與字數相同
+    for (const [w, r] of Object.entries(WORDS)) expect(r.length, w).toBe(Array.from(w).length);
+  });
+});

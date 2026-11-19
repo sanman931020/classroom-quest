@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
-import type { OrbitControls as OrbitImpl } from "three-stdlib";
 import type { FurnitureId, Progress } from "../game/types";
 import { SEATS, type ClassroomProps } from "../scenes/Classroom";
 import { Character3D } from "./Character3D";
@@ -16,10 +14,12 @@ import { usePrefs } from "../ui/prefs";
  */
 type V3 = [number, number, number];
 const PRESETS: Record<string, { pos: V3; target: V3 }> = {
-  front: { pos: [13.6, 8.4, 14.6], target: [5.0, 0.7, 5.0] },
-  full: { pos: [14.5, 10, 16], target: [6, 0.5, 5] },
-  menu: { pos: [11.2, 4.4, 9.6], target: [6.2, 1.0, 2.6] },
-  corner: { pos: [12.8, 5.4, 11.6], target: [7.0, 0.9, 2.8] },
+  // 站在教室前方角落、略高於學生視線，看向全班
+  front: { pos: [0.9, 2.45, 9.4], target: [7.2, 0.75, 4.2] },
+  full: { pos: [0.9, 2.45, 9.4], target: [7.2, 0.75, 4.2] },
+  // 主選單：看向窗邊閱讀角
+  menu: { pos: [4.4, 1.9, 6.6], target: [8.4, 1.0, 1.6] },
+  corner: { pos: [4.4, 1.9, 6.6], target: [8.4, 1.0, 1.6] },
 };
 const DESKS: [number, number][] = [];
 for (const gy of [5.4, 7.1, 8.8]) for (const gx of [4.3, 6.3, 8.3, 10.3]) DESKS.push([gx, gy]);
@@ -41,6 +41,8 @@ const seat3d = (gx: number, gy: number) => {
 const near = (a: number, b: number) => Math.abs(a - b) < 0.01;
 function remapSeat(x: number, z: number, pose?: string): [number, number, boolean] {
   const seatedPose = pose === "sit" || pose === "raise";
+  // 司儀：避免太靠近鏡頭
+  if (near(x, 1.4) && near(z, 7.3)) return [2.6, 7.2, false];
   // 記錄桌
   if (near(x, 1.72) && near(z, 2.2)) {
     const [sx, sz] = seat3d(1.0, 1.95);
@@ -182,7 +184,7 @@ function RulesBoard({ classLabel, proposal, fv }: { classLabel: string; proposal
     });
   });
   return (
-    <group position={[8.0, 1.42, 0.02]}>
+    <group position={[12.98, 1.55, 4.0]} rotation={[0, -Math.PI / 2, 0]}>
       <mesh material={toon("#a9825a")} position={[0, 0, -0.01]}>
         <boxGeometry args={[3.1, 1.45, 0.04]} />
       </mesh>
@@ -225,7 +227,7 @@ function VoteBoard3D({ vote, fv }: { vote: NonNullable<ClassroomProps["voteBoard
     });
   });
   return (
-    <group position={[2.7, 0, 9.2]} rotation={[0, 0.75, 0]}>
+    <group position={[11.7, 0, 8.7]} rotation={[0, -1.45, 0]}>
       {[-0.42, 0.42].map((x) => (
         <mesh key={x} material={toon("#8b6a4a")} position={[x, 0.75, -0.05]} rotation={[0.08, 0, 0]}>
           <boxGeometry args={[0.05, 1.5, 0.05]} />
@@ -239,84 +241,6 @@ function VoteBoard3D({ vote, fv }: { vote: NonNullable<ClassroomProps["voteBoard
         <meshBasicMaterial map={tex} toneMapped={false} />
       </mesh>
     </group>
-  );
-}
-
-/* ---------------- 窗戶與陽光 ---------------- */
-function Windows({ reduced }: { reduced: boolean }) {
-  const sky = useTexture("sky", 4, 64, (ctx) => {
-    const g = ctx.createLinearGradient(0, 0, 0, 64);
-    g.addColorStop(0, "#a9d8ec");
-    g.addColorStop(0.7, "#d7eef3");
-    g.addColorStop(1, "#eef6e4");
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, 4, 64);
-  });
-  const curtains = useRef<THREE.Group[]>([]);
-  const rays = useRef<THREE.MeshBasicMaterial[]>([]);
-  useFrame((st) => {
-    if (reduced) return;
-    const t = st.clock.elapsedTime;
-    curtains.current.forEach((g, i) => g && (g.rotation.x = Math.sin(t * 1.1 + i) * 0.06));
-    rays.current.forEach((m, i) => m && (m.opacity = 0.055 + Math.sin(t * 0.8 + i) * 0.02));
-  });
-  return (
-    <>
-      {[
-        [0.6, 2.9],
-        [3.3, 5.6],
-      ].map(([a, b], i) => {
-        const w = b - a;
-        const cx = (a + b) / 2;
-        return (
-          <group key={i}>
-            <mesh material={toon("#fffaf0")} position={[cx, 1.6, 0.02]}>
-              <boxGeometry args={[w + 0.16, 1.32, 0.05]} />
-            </mesh>
-            <mesh position={[cx, 1.6, 0.05]}>
-              <planeGeometry args={[w, 1.18]} />
-              <meshBasicMaterial map={sky} toneMapped={false} />
-            </mesh>
-            {[cx - w * 0.28, cx + w * 0.3].map((x, k) => (
-              <mesh key={k} material={flat(k ? "#93c182" : "#a9cf95")} position={[x, 1.25 + k * 0.05, 0.055]}>
-                <circleGeometry args={[0.32 - k * 0.06, 20]} />
-              </mesh>
-            ))}
-            <mesh material={toon("#8a7354")} position={[cx, 1.6, 0.07]}>
-              <boxGeometry args={[0.04, 1.18, 0.02]} />
-            </mesh>
-            <mesh material={toon("#8a7354")} position={[cx, 1.6, 0.07]}>
-              <boxGeometry args={[w, 0.035, 0.02]} />
-            </mesh>
-            <mesh material={toon("#e7dcc6")} position={[cx, 0.97, 0.1]}>
-              <boxGeometry args={[w + 0.2, 0.04, 0.16]} />
-            </mesh>
-            {[a + 0.12, b - 0.12].map((x, k) => (
-              <group key={k} position={[x, 2.28, 0.12]} ref={(g) => void (g && (curtains.current[i * 2 + k] = g))}>
-                <mesh material={toon("#f6c3b9")} position={[0, -0.62, 0]}>
-                  <boxGeometry args={[0.32, 1.26, 0.03]} />
-                </mesh>
-              </group>
-            ))}
-            <mesh position={[cx + 0.4, 0.95, 1.1]} rotation={[-0.95, 0, 0]}>
-              <planeGeometry args={[w, 2.3]} />
-              <meshBasicMaterial
-                ref={(m) => void (m && (rays.current[i] = m))}
-                color="#fff3c4"
-                transparent
-                opacity={0.06}
-                depthWrite={false}
-                blending={THREE.AdditiveBlending}
-                side={THREE.DoubleSide}
-              />
-            </mesh>
-            <mesh material={flat("#fff6d2", 0.35)} rotation={[-Math.PI / 2, 0, 0]} position={[cx + 0.6, 0.012, 2.2]}>
-              <planeGeometry args={[w, 1.6]} />
-            </mesh>
-          </group>
-        );
-      })}
-    </>
   );
 }
 
@@ -454,6 +378,291 @@ function Plant({ x, z, s = 1 }: { x: number; z: number; s?: number }) {
   );
 }
 
+/* ---------------- 窗戶牆（z=0）＋窗外校園 ---------------- */
+const WINDOWS: [number, number][] = [
+  [0.8, 3.2],
+  [3.8, 6.2],
+  [6.8, 9.2],
+  [9.8, 12.2],
+];
+const WALL_H = 3.0;
+const WIN_LO = 0.95;
+const WIN_HI = 2.35;
+
+function WindowWall({ reduced }: { reduced: boolean }) {
+  const wall = toon("#f6eedd");
+  const curtains = useRef<THREE.Group[]>([]);
+  const rays = useRef<THREE.MeshBasicMaterial[]>([]);
+  useFrame((st) => {
+    if (reduced) return;
+    const t = st.clock.elapsedTime;
+    curtains.current.forEach((g, i) => g && (g.rotation.x = Math.sin(t * 1.1 + i) * 0.07));
+    rays.current.forEach((m, i) => m && (m.opacity = 0.05 + Math.sin(t * 0.8 + i) * 0.02));
+  });
+  // 牆面：下段、上段與窗間柱
+  const piers: [number, number][] = [[0, WINDOWS[0][0]]];
+  for (let i = 0; i < WINDOWS.length - 1; i++) piers.push([WINDOWS[i][1], WINDOWS[i + 1][0]]);
+  piers.push([WINDOWS[WINDOWS.length - 1][1], 13]);
+  return (
+    <group>
+      <mesh material={wall} position={[6.5, WIN_LO / 2, -0.08]}>
+        <boxGeometry args={[13, WIN_LO, 0.16]} />
+      </mesh>
+      <mesh material={toon("#cfe2d4")} position={[6.5, 0.35, 0.005]}>
+        <boxGeometry args={[13, 0.7, 0.01]} />
+      </mesh>
+      <mesh material={wall} position={[6.5, (WIN_HI + WALL_H) / 2, -0.08]}>
+        <boxGeometry args={[13, WALL_H - WIN_HI, 0.16]} />
+      </mesh>
+      {piers.map(([a, b], i) => (
+        <mesh key={i} material={wall} position={[(a + b) / 2, (WIN_LO + WIN_HI) / 2, -0.08]}>
+          <boxGeometry args={[b - a, WIN_HI - WIN_LO, 0.16]} />
+        </mesh>
+      ))}
+      {WINDOWS.map(([a, b], i) => {
+        const w = b - a;
+        const cx = (a + b) / 2;
+        const cy = (WIN_LO + WIN_HI) / 2;
+        return (
+          <group key={i}>
+            {/* 窗框與玻璃 */}
+            {[
+              [cx, WIN_HI, w + 0.1, 0.07],
+              [cx, WIN_LO, w + 0.1, 0.07],
+              [cx, cy, 0.05, WIN_HI - WIN_LO],
+              [a, cy, 0.06, WIN_HI - WIN_LO],
+              [b, cy, 0.06, WIN_HI - WIN_LO],
+            ].map(([x, y, fw, fh], k) => (
+              <mesh key={k} material={toon("#fffaf0")} position={[x, y, -0.02]}>
+                <boxGeometry args={[fw, fh, 0.08]} />
+              </mesh>
+            ))}
+            <mesh material={flat("#dff2f7", 0.18)} position={[cx, cy, -0.04]}>
+              <planeGeometry args={[w, WIN_HI - WIN_LO]} />
+            </mesh>
+            {/* 窗台 */}
+            <mesh material={toon("#e7dcc6")} position={[cx, WIN_LO - 0.02, 0.08]}>
+              <boxGeometry args={[w + 0.2, 0.04, 0.18]} />
+            </mesh>
+            {/* 窗簾（輕微擺動） */}
+            {[a + 0.16, b - 0.16].map((x, k) => (
+              <group key={k} position={[x, WIN_HI + 0.12, 0.14]} ref={(g) => void (g && (curtains.current[i * 2 + k] = g))}>
+                <mesh material={toon("#f6c3b9")} position={[0, -0.75, 0]}>
+                  <boxGeometry args={[0.34, 1.5, 0.03]} />
+                </mesh>
+              </group>
+            ))}
+            {/* 陽光 */}
+            <mesh position={[cx + 0.5, 1.05, 1.2]} rotation={[-0.95, 0, 0]}>
+              <planeGeometry args={[w, 2.6]} />
+              <meshBasicMaterial
+                ref={(m) => void (m && (rays.current[i] = m))}
+                color="#fff3c4"
+                transparent
+                opacity={0.05}
+                depthWrite={false}
+                blending={THREE.AdditiveBlending}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+            <mesh material={flat("#fff6d2", 0.3)} rotation={[-Math.PI / 2, 0, 0]} position={[cx + 0.6, 0.012, 2.3]}>
+              <planeGeometry args={[w, 1.7]} />
+            </mesh>
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+/** 窗外：天空、草地、樹與對面校舍 */
+function Outside() {
+  const sky = useTexture("sky-big", 4, 128, (ctx) => {
+    const g = ctx.createLinearGradient(0, 0, 0, 128);
+    g.addColorStop(0, "#8fcbe6");
+    g.addColorStop(0.65, "#cfeaf2");
+    g.addColorStop(1, "#eef6e4");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 4, 128);
+  });
+  return (
+    <group>
+      <mesh position={[6.5, 5, -14]}>
+        <planeGeometry args={[80, 30]} />
+        <meshBasicMaterial map={sky} toneMapped={false} />
+      </mesh>
+      <mesh material={toon("#b7d79a")} rotation={[-Math.PI / 2, 0, 0]} position={[6.5, -0.6, -7]}>
+        <planeGeometry args={[80, 14]} />
+      </mesh>
+      {/* 對面校舍 */}
+      <mesh material={toon("#f3e3cc")} position={[6.5, 2.4, -10]}>
+        <boxGeometry args={[30, 6, 2]} />
+      </mesh>
+      {[-6, -2, 2, 6, 10, 14, 18].map((x) =>
+        [1.0, 3.0].map((y) => (
+          <mesh key={`${x}-${y}`} material={flat("#bfdde8")} position={[x, y, -8.98]}>
+            <planeGeometry args={[1.6, 0.9]} />
+          </mesh>
+        )),
+      )}
+      <mesh material={toon("#e98a7c")} position={[6.5, 5.5, -10]}>
+        <boxGeometry args={[30.4, 0.3, 2.3]} />
+      </mesh>
+      {/* 樹 */}
+      {[
+        [0.5, -3.2, 1.3],
+        [4.5, -4.2, 1.1],
+        [8.8, -3.4, 1.4],
+        [12.6, -4.4, 1.2],
+        [-3, -4.6, 1.1],
+        [16, -3.6, 1.3],
+      ].map(([x, z, s], i) => (
+        <group key={i} position={[x, -0.6, z]} scale={s}>
+          <mesh material={toon("#a07a55")} position={[0, 1, 0]}>
+            <cylinderGeometry args={[0.12, 0.16, 2, 8]} />
+          </mesh>
+          <mesh material={toon(i % 2 ? "#8fc27f" : "#7fb88f")} position={[0, 2.4, 0]}>
+            <sphereGeometry args={[1.0, 14, 10]} />
+          </mesh>
+          <mesh material={toon("#9ccd85")} position={[0.5, 2.1, 0.2]}>
+            <sphereGeometry args={[0.7, 12, 8]} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+/* ---------------- 走廊牆（z=10）：前門、後門、高窗 ---------------- */
+function CorridorWall() {
+  const wall = toon("#f1e7d4");
+  const doors: [number, number][] = [
+    [0.4, 1.5],
+    [11.4, 12.5],
+  ];
+  const DOOR_H = 2.1;
+  const HI_LO = 1.65;
+  const HI_HI = 2.45;
+  return (
+    <group>
+      {/* 下段牆（門與門之間） */}
+      <mesh material={wall} position={[(1.5 + 11.4) / 2, HI_LO / 2, 10.08]}>
+        <boxGeometry args={[11.4 - 1.5, HI_LO, 0.16]} />
+      </mesh>
+      <mesh material={toon("#cfe2d4")} position={[(1.5 + 11.4) / 2, 0.35, 9.995]}>
+        <boxGeometry args={[11.4 - 1.5, 0.7, 0.01]} />
+      </mesh>
+      {/* 門兩側 */}
+      <mesh material={wall} position={[0.2, WALL_H / 2, 10.08]}>
+        <boxGeometry args={[0.4, WALL_H, 0.16]} />
+      </mesh>
+      <mesh material={wall} position={[12.75, WALL_H / 2, 10.08]}>
+        <boxGeometry args={[0.5, WALL_H, 0.16]} />
+      </mesh>
+      {/* 門上方 */}
+      {doors.map(([a, b], i) => (
+        <group key={i}>
+          <mesh material={wall} position={[(a + b) / 2, (DOOR_H + WALL_H) / 2, 10.08]}>
+            <boxGeometry args={[b - a, WALL_H - DOOR_H, 0.16]} />
+          </mesh>
+          {/* 拉門（半開） */}
+          <mesh material={toon("#c99a6b")} position={[(a + b) / 2 + 0.3, DOOR_H / 2, 10.2]}>
+            <boxGeometry args={[b - a, DOOR_H, 0.05]} />
+          </mesh>
+          <mesh material={flat("#e9f2f4")} position={[(a + b) / 2 + 0.3, 1.55, 10.17]}>
+            <planeGeometry args={[(b - a) * 0.6, 0.6]} />
+          </mesh>
+        </group>
+      ))}
+      {/* 高窗之間與上方 */}
+      <mesh material={wall} position={[(1.5 + 11.4) / 2, (HI_HI + WALL_H) / 2, 10.08]}>
+        <boxGeometry args={[11.4 - 1.5, WALL_H - HI_HI, 0.16]} />
+      </mesh>
+      {[1.5, 4.0, 6.5, 9.0, 11.4].map((x, i) =>
+        i < 4 ? (
+          <mesh key={i} material={toon("#fffaf0")} position={[x + 1.25, (HI_LO + HI_HI) / 2, 10.04]}>
+            <boxGeometry args={[0.06, HI_HI - HI_LO, 0.1]} />
+          </mesh>
+        ) : null,
+      )}
+      {/* 走廊（從高窗與門看出去） */}
+      <mesh material={toon("#efe6d2")} position={[6.5, 1.5, 12.2]}>
+        <boxGeometry args={[30, 3.2, 0.2]} />
+      </mesh>
+      <mesh material={toon("#d8cdb6")} rotation={[-Math.PI / 2, 0, 0]} position={[6.5, 0.002, 11.1]}>
+        <planeGeometry args={[30, 2.2]} />
+      </mesh>
+    </group>
+  );
+}
+
+/* ---------------- 天花板：日光燈、吊扇 ---------------- */
+function Ceiling({ reduced }: { reduced: boolean }) {
+  const fans = useRef<THREE.Group[]>([]);
+  useFrame((_, dt) => {
+    if (reduced) return;
+    fans.current.forEach((g) => g && (g.rotation.y += dt * 2.4));
+  });
+  return (
+    <group>
+      <mesh material={toon("#f7f3ea")} position={[6.5, WALL_H + 0.05, 5]}>
+        <boxGeometry args={[13.2, 0.1, 10.2]} />
+      </mesh>
+      {[2.2, 5.2, 8.2, 11.2].map((x) =>
+        [2.5, 5, 7.5].map((z) => (
+          <group key={`${x}-${z}`} position={[x, WALL_H - 0.04, z]}>
+            <mesh material={toon("#e8e4da")}>
+              <boxGeometry args={[1.25, 0.05, 0.22]} />
+            </mesh>
+            <mesh material={flat("#fffdf3")} position={[0, -0.035, 0]}>
+              <boxGeometry args={[1.18, 0.03, 0.08]} />
+            </mesh>
+          </group>
+        )),
+      )}
+      {[
+        [4.4, 5.0],
+        [9.0, 5.0],
+      ].map(([x, z], i) => (
+        <group key={i} position={[x, WALL_H, z]}>
+          <mesh material={toon("#d9d2c2")} position={[0, -0.25, 0]}>
+            <cylinderGeometry args={[0.025, 0.025, 0.5, 8]} />
+          </mesh>
+          <group position={[0, -0.52, 0]} ref={(g) => void (g && (fans.current[i] = g))}>
+            <mesh material={toon("#efe9dc")}>
+              <cylinderGeometry args={[0.12, 0.1, 0.1, 14]} />
+            </mesh>
+            {[0, 1, 2].map((k) => (
+              <mesh key={k} material={toon("#f3eee4")} rotation={[0, (k * Math.PI * 2) / 3, 0.06]} position={[Math.cos((k * Math.PI * 2) / 3) * 0.45, 0, -Math.sin((k * Math.PI * 2) / 3) * 0.45]}>
+                <boxGeometry args={[0.75, 0.015, 0.14]} />
+              </mesh>
+            ))}
+          </group>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+/* ---------------- 後牆（x=13）：置物櫃 ---------------- */
+function Cubbies() {
+  const colors = ["#9fd0c6", "#f6c3b9", "#f7edcf", "#c8d6ee"];
+  return (
+    <group position={[12.78, 0, 6.3]}>
+      <mesh material={toon("#c99a6b")} position={[0, 0.48, 0]}>
+        <boxGeometry args={[0.42, 0.96, 6.6]} />
+      </mesh>
+      {Array.from({ length: 11 }, (_, i) =>
+        [0.25, 0.7].map((y, r) => (
+          <mesh key={`${i}-${r}`} material={toon(colors[(i + r) % 4])} position={[-0.215, y, -3 + i * 0.6]}>
+            <boxGeometry args={[0.02, 0.36, 0.5]} />
+          </mesh>
+        )),
+      )}
+    </group>
+  );
+}
+
 function Room({ positions, messy, mode, classLabel, board, proposalCard, voteBoard, reduced }: {
   positions: Progress["positions"];
   messy?: boolean;
@@ -491,10 +700,8 @@ function Room({ positions, messy, mode, classLabel, board, proposalCard, voteBoa
   });
   return (
     <group>
-      {/* 底座與地板 */}
-      <mesh material={toon("#c9b48f")} position={[6.5, -0.2, 5]}>
-        <boxGeometry args={[13.1, 0.4, 10.1]} />
-      </mesh>
+      <Outside />
+      {/* 地板 */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[6.5, 0.001, 5]}>
         <planeGeometry args={[13, 10]} />
         <meshToonMaterial map={grid} />
@@ -507,52 +714,50 @@ function Room({ positions, messy, mode, classLabel, board, proposalCard, voteBoa
           <planeGeometry args={[0.45, 0.05]} />
         </mesh>
       ))}
-      {/* 牆 */}
-      <mesh material={toon("#f6eedd")} position={[6.5, 1.3, -0.08]}>
-        <boxGeometry args={[13.16, 2.6, 0.16]} />
-      </mesh>
-      <mesh material={toon("#cfe2d4")} position={[6.5, 0.35, 0.005]}>
-        <boxGeometry args={[13, 0.7, 0.01]} />
-      </mesh>
-      <mesh material={toon("#f1e7d4")} position={[-0.08, 1.3, 5]}>
-        <boxGeometry args={[0.16, 2.6, 10]} />
+      {/* 前牆（黑板牆，x=0） */}
+      <mesh material={toon("#f1e7d4")} position={[-0.08, WALL_H / 2, 5]}>
+        <boxGeometry args={[0.16, WALL_H, 10.32]} />
       </mesh>
       <mesh material={toon("#cfe2d4")} position={[0.005, 0.35, 5]}>
         <boxGeometry args={[0.01, 0.7, 10]} />
       </mesh>
-      <mesh material={toon("#fbf6ea")} position={[6.5, 2.62, -0.08]}>
-        <boxGeometry args={[13.2, 0.05, 0.2]} />
+      {/* 後牆（x=13） */}
+      <mesh material={toon("#f6eedd")} position={[13.08, WALL_H / 2, 5]}>
+        <boxGeometry args={[0.16, WALL_H, 10.32]} />
       </mesh>
-      <mesh material={toon("#fbf6ea")} position={[-0.08, 2.62, 5]}>
-        <boxGeometry args={[0.2, 0.05, 10]} />
+      <mesh material={toon("#cfe2d4")} position={[12.995, 0.35, 5]}>
+        <boxGeometry args={[0.01, 0.7, 10]} />
       </mesh>
-      <Windows reduced={reduced} />
+      <WindowWall reduced={reduced} />
+      <CorridorWall />
+      <Ceiling reduced={reduced} />
+      <Cubbies />
       <Blackboard board={board} fv={fv} />
       <RulesBoard classLabel={classLabel} proposal={proposalCard} fv={fv} />
-      {/* 作品展示 */}
-      <group position={[11.3, 1.45, 0.02]}>
+      {/* 作品展示（後牆） */}
+      <group position={[12.98, 2.05, 8.3]} rotation={[0, -Math.PI / 2, 0]}>
         <mesh material={toon("#fffaf0")}>
-          <boxGeometry args={[2.3, 1.15, 0.03]} />
+          <boxGeometry args={[2.3, 0.9, 0.03]} />
         </mesh>
         {[
-          [-0.55, 0.25, "#9fd0c6"],
-          [0.55, 0.25, "#f6c3b9"],
-          [-0.55, -0.27, "#f7edcf"],
-          [0.55, -0.27, "#c8d6ee"],
+          [-0.55, 0.2, "#9fd0c6"],
+          [0.55, 0.2, "#f6c3b9"],
+          [-0.55, -0.22, "#f7edcf"],
+          [0.55, -0.22, "#c8d6ee"],
         ].map(([x, y, c], i) => (
           <mesh key={i} material={toon(c as string)} position={[x as number, y as number, 0.02]}>
-            <boxGeometry args={[0.95, 0.44, 0.01]} />
+            <boxGeometry args={[0.95, 0.36, 0.01]} />
           </mesh>
         ))}
       </group>
-      {/* 三角旗 */}
-      {Array.from({ length: 12 }, (_, i) => (
-        <mesh key={i} material={toon(["#e98a7c", "#65afa5", "#d6b563"][i % 3])} position={[4.5 + i * 0.68, 2.36 - Math.sin((i / 11) * Math.PI) * 0.1, 0.04]} rotation={[0, 0, Math.PI]}>
-          <coneGeometry args={[0.12, 0.24, 3]} />
+      {/* 三角旗（窗戶上方） */}
+      {Array.from({ length: 16 }, (_, i) => (
+        <mesh key={i} material={toon(["#e98a7c", "#65afa5", "#d6b563"][i % 3])} position={[1 + i * 0.75, 2.62 - Math.sin((i / 15) * Math.PI) * 0.1, 0.06]} rotation={[0, 0, Math.PI]}>
+          <coneGeometry args={[0.11, 0.22, 3]} />
         </mesh>
       ))}
-      {/* 幹部工作區 */}
-      <group position={[0.02, 1.35, 1.25]} rotation={[0, Math.PI / 2, 0]}>
+      {/* 幹部工作區（前牆） */}
+      <group position={[0.02, 1.45, 1.25]} rotation={[0, Math.PI / 2, 0]}>
         <mesh material={toon("#fffaf0")}>
           <boxGeometry args={[1.6, 0.8, 0.03]} />
         </mesh>
@@ -565,22 +770,15 @@ function Room({ positions, messy, mode, classLabel, board, proposalCard, voteBoa
       <mesh material={toon("#bfd8c6")} position={[0.22, 0.24, 1.3]}>
         <boxGeometry args={[0.42, 0.48, 1.6]} />
       </mesh>
-      {/* 時鐘 */}
-      <group position={[0.03, 2.25, 4.9]} rotation={[0, 0, Math.PI / 2]}>
+      {/* 時鐘、國旗位置的班級標語板 */}
+      <group position={[0.03, 2.5, 5]} rotation={[0, 0, Math.PI / 2]}>
         <mesh material={toon("#fffaf0")}>
-          <cylinderGeometry args={[0.16, 0.16, 0.04, 24]} />
+          <cylinderGeometry args={[0.18, 0.18, 0.04, 24]} />
         </mesh>
         <mesh ref={clockHand} material={flat("#e98a7c")} position={[0, 0.03, 0]}>
-          <boxGeometry args={[0.02, 0.01, 0.24]} />
+          <boxGeometry args={[0.02, 0.01, 0.26]} />
         </mesh>
       </group>
-      {/* 門 */}
-      <mesh material={toon("#c99a6b")} position={[0.03, 0.78, 9.1]}>
-        <boxGeometry args={[0.05, 1.56, 1.2]} />
-      </mesh>
-      <mesh material={flat("#bfe1ef")} position={[0.06, 1.2, 9.1]} rotation={[0, Math.PI / 2, 0]}>
-        <planeGeometry args={[0.8, 0.45]} />
-      </mesh>
       {/* 課桌椅、講桌 */}
       {DESKS.map(([gx, gy], i) => (
         <Desk key={i} gx={gx} gy={gy} />
@@ -599,57 +797,115 @@ function Room({ positions, messy, mode, classLabel, board, proposalCard, voteBoa
       <Shelf cx={sh.x} cz={sh.z} messy={messy} />
       <Mat cx={mt.x} cz={mt.z} />
       <Table cx={tb.x} cz={tb.z} />
-      <Plant x={12.55} z={0.45} />
-      <Plant x={0.45} z={9.85} s={0.9} />
-      <mesh material={toon("#d6b563")} position={[12.5, 0.22, 2.4]} scale={[1, 0.6, 1]}>
+      <Plant x={12.4} z={0.45} />
+      <Plant x={0.45} z={9.5} s={0.9} />
+      <mesh material={toon("#d6b563")} position={[12.2, 0.22, 2.4]} scale={[1, 0.6, 1]}>
         <sphereGeometry args={[0.36, 18, 12]} />
       </mesh>
     </group>
   );
 }
 
+/**
+ * 環顧鏡頭：學生站在教室裡的固定位置，拖曳畫面＝轉頭看四周（左右可轉一圈、上下有限），
+ * 雙指／滾輪只改變視角大小。鏡頭永遠在教室內，不會看到教室外殼。
+ */
 function CameraRig({ preset }: { preset: string }) {
-  const { camera, size } = useThree();
-  const ctrl = useRef<OrbitImpl | null>(null);
+  const { camera, size, gl } = useThree();
   const { reduced } = usePrefs();
   const p = PRESETS[preset] ?? PRESETS.front;
-  const anim = useRef(true);
-  // 依畫面比例調整距離：場景區越窄（如 4:3 平板加上右側面板），鏡頭越後退，確保整間教室入鏡
+  const goalPos = useMemo(() => new THREE.Vector3(...p.pos), [p]);
+  const baseDir = useMemo(() => new THREE.Vector3(...p.target).sub(new THREE.Vector3(...p.pos)).normalize(), [p]);
+  const baseYaw = Math.atan2(baseDir.x, baseDir.z);
+  const basePitch = Math.asin(baseDir.y);
+  const look = useRef({ yaw: baseYaw, pitch: basePitch, offYaw: 0, offPitch: 0, zoom: 0 });
+  const drag = useRef<{ id: number; x: number; y: number } | null>(null);
+  const pinch = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchDist = useRef(0);
   const aspect = size.width / Math.max(1, size.height);
-  const factor = Math.min(1.9, Math.max(1, 1.5 / aspect));
-  const goalPos = useMemo(() => {
-    const t = new THREE.Vector3(...p.target);
-    return new THREE.Vector3(...p.pos).sub(t).multiplyScalar(factor).add(t);
-  }, [p, factor]);
-  const goalTarget = useMemo(() => new THREE.Vector3(...p.target), [p]);
-  const az = Math.atan2(p.pos[0] - p.target[0], p.pos[2] - p.target[2]);
+  const baseFov = useMemo(() => {
+    const hfov = (76 * Math.PI) / 180;
+    const vfov = (2 * Math.atan(Math.tan(hfov / 2) / aspect) * 180) / Math.PI;
+    return Math.min(74, Math.max(44, vfov));
+  }, [aspect]);
+
+  // 換場景（主選單／班會）時，視線回到預設方向
   useEffect(() => {
-    anim.current = true;
-  }, [preset, factor]);
+    look.current.offYaw = 0;
+    look.current.offPitch = 0;
+    look.current.zoom = 0;
+  }, [preset]);
+
+  useEffect(() => {
+    const el = gl.domElement;
+    const down = (e: PointerEvent) => {
+      pinch.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinch.current.size === 1) drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      else drag.current = null;
+    };
+    const move = (e: PointerEvent) => {
+      if (pinch.current.has(e.pointerId)) pinch.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinch.current.size === 2) {
+        const [a, b] = [...pinch.current.values()];
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (pinchDist.current) look.current.zoom = Math.max(-16, Math.min(8, look.current.zoom - (d - pinchDist.current) * 0.05));
+        pinchDist.current = d;
+        return;
+      }
+      const g = drag.current;
+      if (!g || g.id !== e.pointerId) return;
+      const dx = e.clientX - g.x;
+      const dy = e.clientY - g.y;
+      g.x = e.clientX;
+      g.y = e.clientY;
+      look.current.offYaw -= dx * 0.0055;
+      look.current.offPitch = Math.max(-0.55, Math.min(0.75, look.current.offPitch - dy * 0.0045));
+    };
+    const up = (e: PointerEvent) => {
+      pinch.current.delete(e.pointerId);
+      if (pinch.current.size < 2) pinchDist.current = 0;
+      if (drag.current?.id === e.pointerId) drag.current = null;
+    };
+    const wheel = (e: WheelEvent) => {
+      e.preventDefault();
+      look.current.zoom = Math.max(-16, Math.min(8, look.current.zoom + e.deltaY * 0.02));
+    };
+    el.addEventListener("pointerdown", down);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    el.addEventListener("wheel", wheel, { passive: false });
+    return () => {
+      el.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      el.removeEventListener("wheel", wheel);
+    };
+  }, [gl]);
+
+  const dir = useMemo(() => new THREE.Vector3(), []);
+  const at = useMemo(() => new THREE.Vector3(), []);
   useFrame((_, dt) => {
-    const c = ctrl.current;
-    if (!c || !anim.current) return;
-    const k = reduced ? 1 : 1 - Math.pow(0.02, dt);
-    camera.position.lerp(goalPos, k);
-    c.target.lerp(goalTarget, k);
-    c.update();
-    if (camera.position.distanceTo(goalPos) < 0.02) anim.current = false;
+    const cam = camera as THREE.PerspectiveCamera;
+    const k = reduced ? 1 : 1 - Math.pow(0.015, dt);
+    cam.position.lerp(goalPos, k);
+    const L = look.current;
+    const ty = baseYaw + L.offYaw;
+    const tp = Math.max(-1.25, Math.min(0.5, basePitch + L.offPitch));
+    // 角度以最短路徑補間
+    L.yaw += Math.atan2(Math.sin(ty - L.yaw), Math.cos(ty - L.yaw)) * k;
+    L.pitch += (tp - L.pitch) * k;
+    dir.set(Math.sin(L.yaw) * Math.cos(L.pitch), Math.sin(L.pitch), Math.cos(L.yaw) * Math.cos(L.pitch));
+    at.copy(cam.position).add(dir);
+    cam.lookAt(at);
+    const fov = baseFov + L.zoom;
+    if (Math.abs(cam.fov - fov) > 0.01) {
+      cam.fov += (fov - cam.fov) * k;
+      cam.updateProjectionMatrix();
+    }
   });
-  return (
-    <OrbitControls
-      ref={ctrl as never}
-      makeDefault
-      enablePan={false}
-      enableDamping
-      minDistance={7}
-      maxDistance={36}
-      minPolarAngle={0.45}
-      maxPolarAngle={1.2}
-      minAzimuthAngle={az - 0.55}
-      maxAzimuthAngle={az + 0.55}
-      onStart={() => (anim.current = false)}
-    />
-  );
+  return null;
 }
 
 export default function Classroom3D(props: ClassroomProps) {
@@ -661,15 +917,15 @@ export default function Classroom3D(props: ClassroomProps) {
     <div className="scene3d" role="group" aria-label={props.ariaLabel}>
       <Canvas
         dpr={prefs.lowPower ? 1 : [1, 1.75]}
-        camera={{ fov: 32, position: camPos, near: 0.1, far: 120 }}
+        camera={{ fov: 60, position: camPos, near: 0.05, far: 120 }}
         gl={{ antialias: true, powerPreference: "high-performance" }}
         frameloop="always"
       >
-        <color attach="background" args={["#f3ead8"]} />
-        <fog attach="fog" args={["#f3ead8", 28, 55]} />
-        <hemisphereLight args={["#fff8ea", "#c9b48f", 1.15]} />
-        <directionalLight position={[8, 12, 9]} intensity={1.25} color="#fff2d8" />
-        <directionalLight position={[3, 6, -6]} intensity={0.35} color="#d8ecff" />
+        <color attach="background" args={["#cfeaf2"]} />
+        <hemisphereLight args={["#fff8ea", "#c9b48f", 1.25]} />
+        <directionalLight position={[6, 9, -8]} intensity={0.9} color="#fff2d8" />
+        <directionalLight position={[2, 6, 12]} intensity={0.45} color="#fff8ee" />
+        <ambientLight intensity={0.25} />
         <Room
           positions={props.positions}
           messy={props.messy}

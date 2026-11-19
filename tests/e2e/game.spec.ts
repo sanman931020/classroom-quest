@@ -3,13 +3,16 @@ import { test, expect, type Page } from "@playwright/test";
 test.use({ viewport: { width: 1024, height: 768 } });
 test.setTimeout(150_000);
 
-async function enter(page: Page, cls = "四年五班", name = "小明") {
+async function enter(page: Page, cls = "四年五班", name = "小明", zhuyin = false) {
   await page.goto("/");
-  await page.evaluate(() => localStorage.clear());
+  // 流程測試以純文字比對；注音破音字校正另有專門測試
+  await page.evaluate((z) => {
+    localStorage.clear();
+    localStorage.setItem("classroom-quest-ui-v1", JSON.stringify({ zhuyin: z }));
+  }, zhuyin);
   await page.reload();
   await page.getByPlaceholder("例如：三年二班").fill(cls);
   await page.getByPlaceholder("例如：小明").fill(name);
-  await page.getByRole("button", { name: "進入教室" }).click();
   await expect(page.locator(".home-intro")).toContainText(`歡迎來到${cls}`);
 }
 
@@ -17,8 +20,15 @@ async function choose(page: Page, label: string | RegExp) {
   await page.locator(".dialogue-choices").getByRole("button", { name: label }).click();
 }
 
-async function pick(page: Page, topic: string, role: string) {
+async function start(page: Page) {
   await page.getByRole("button", { name: "開始探索" }).click();
+  // 上課鐘聲後的開場說明
+  await expect(page.getByRole("dialog", { name: "開場說明" })).toBeVisible();
+  await page.getByRole("button", { name: "跳過說明" }).click();
+}
+
+async function pick(page: Page, topic: string, role: string) {
+  await start(page);
   await page.getByRole("group", { name: "討論主題" }).getByRole("button", { name: new RegExp(topic) }).click();
   await page.getByRole("group", { name: "班會角色" }).getByRole("button", { name: new RegExp(`^${role}`) }).click();
   await page.getByRole("button", { name: /開始！/ }).click();
@@ -28,7 +38,11 @@ test("入口輸入班級與名字，畫面帶入", async ({ page }) => {
   await enter(page);
   await page.screenshot({ path: "test-results/01-home.png" });
   await page.getByRole("button", { name: "開始探索" }).click();
-  await expect(page.getByText("小明，今天的班會要討論什麼？")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "開場說明" })).toContainText("上課囉");
+  await page.getByRole("button", { name: /下一步/ }).click();
+  await page.getByRole("button", { name: /下一步/ }).click();
+  await page.getByRole("button", { name: /開始！/ }).click();
+  await expect(page.getByText("小明，今天要討論什麼？")).toBeVisible();
   await expect(page.locator(".hud-title")).toContainText("四年五班・小明");
   await page.screenshot({ path: "test-results/02-topic.png" });
   await page.reload();
@@ -39,11 +53,13 @@ test("主題一：主席主持選舉四步驟，平票再表決", async ({ page 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await enter(page);
   await pick(page, "選舉班級幹部", "主席");
+  // 幹部配對（一次只顯示一張任務卡）
+  await page.getByRole("button", { name: "先略過" }).click();
   // 步驟一：提名人選（常見狀況：好笑不是理由）
   await expect(page.locator(".dialogue-box")).toContainText("因為他很好笑");
   await choose(page, /請浩浩說說/);
   await expect(page.locator(".impact-card")).toContainText("提名有了好理由");
-  await page.getByLabel("提名班長").selectOption("安安");
+  await page.getByRole("group", { name: "提名班長" }).getByRole("button", { name: /安安/ }).click();
   await page.getByRole("button", { name: /確認提名/ }).click();
   // 步驟二：徵求附議，進行討論（起鬨）
   await choose(page, /有沒有人附議/);
@@ -51,7 +67,7 @@ test("主題一：主席主持選舉四步驟，平票再表決", async ({ page 
   await page.getByRole("button", { name: /徵求附議/ }).click();
   await page.getByRole("button", { name: /完成討論/ }).click();
   // 步驟三：舉手表決 → 平票
-  await page.getByLabel("我的舉手支持").selectOption("阿哲");
+  await page.getByRole("group", { name: "我的舉手支持" }).getByRole("button", { name: /阿哲/ }).click();
   await page.getByRole("button", { name: /舉手表決/ }).click();
   await expect(page.locator(".dialogue-box")).toContainText("平票");
   await page.screenshot({ path: "test-results/03-election-tie.png" });
@@ -73,15 +89,16 @@ test("主題一：不好的選擇會帶來不同結局", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await enter(page);
   await pick(page, "選舉班級幹部", "學生");
+  await page.getByRole("button", { name: "先略過" }).click();
   await choose(page, /開玩笑提名/);
   await expect(page.locator(".impact-card")).toContainText("尷尬");
-  await page.getByLabel("提名班長").selectOption("阿哲");
+  await page.getByRole("group", { name: "提名班長" }).getByRole("button", { name: /阿哲/ }).click();
   await page.getByRole("button", { name: /確認提名/ }).click();
   await choose(page, /一起拍桌子/);
   await page.getByRole("button", { name: /徵求附議/ }).click();
   await choose(page, /說得很有自信/);
   await page.getByRole("button", { name: /完成討論/ }).click();
-  await page.getByLabel("我的舉手支持").selectOption("阿哲");
+  await page.getByRole("group", { name: "我的舉手支持" }).getByRole("button", { name: /阿哲/ }).click();
   await page.getByRole("button", { name: /舉手表決/ }).click();
   await choose(page, /我們贏/);
   await choose(page, /跟好朋友一樣/);
@@ -125,12 +142,12 @@ test("主題二：學生角色完成六程序班會、論點卡、少數意見�
     await page.getByRole("button", { name: "我聽完了" }).click();
   }
   await choose(page, /我支持分區/);
-  await expect(page.locator(".arg-card")).toHaveCount(4);
+  await expect(page.locator(".card-chip")).toHaveCount(4);
   await page.getByRole("group", { name: "方案A的影響預測" }).getByRole("button", { name: "想討論的同學" }).click();
   await page.getByRole("group", { name: "方案B的影響預測" }).getByRole("button", { name: "想安靜看書的同學" }).click();
   await page.getByRole("group", { name: "方案C的影響預測" }).getByRole("button", { name: "每天都想使用的同學" }).click();
   await page.getByRole("button", { name: /進行教材示範表決/ }).click();
-  await expect(page.getByText("18 票")).toBeVisible();
+  await expect(page.locator(".task-card")).toContainText("6／18／4");
   await page.getByRole("button", { name: /把討論區放遠一點/ }).click();
   await page.getByRole("button", { name: /約定討論時小小聲/ }).click();
   await page.screenshot({ path: "test-results/06-proposal-vote.png" });
@@ -158,7 +175,7 @@ test("班會小百科有平票處理，平面模式與兩種平板比例", async
   await page.getByRole("button", { name: "設定" }).click();
   await page.getByRole("button", { name: "平面" }).click();
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "開始探索" }).click();
+  await start(page);
   await expect(page.locator("svg.classroom")).toBeVisible();
   for (const [width, height] of [
     [1024, 768],
@@ -169,4 +186,31 @@ test("班會小百科有平票處理，平面模式與兩種平板比例", async
     const foot = await page.locator(".mission-foot").boundingBox();
     expect(foot!.y + foot!.height).toBeLessThanOrEqual(height + 1);
   }
+});
+
+test("注音模式：破音字依詞彙校正（班長、角色）", async ({ page }) => {
+  await enter(page, "四年五班", "小明", true);
+  await expect(page.locator("html")).toHaveAttribute("data-zhuyin", "on");
+  await start(page);
+  await expect(page.locator(".topic-card").first()).toBeVisible();
+  const tab = await page.locator(".step-tab").first().innerText();
+  expect(tab).toContain("角\u{E01E1}色");
+  await page.getByRole("button", { name: "班會小百科" }).click();
+  const hb = await page.locator(".handbook").innerText();
+  expect(hb).toContain("班長\u{E01E1}");
+  await page.screenshot({ path: "test-results/09-zhuyin.png" });
+});
+
+test("決策不需捲動：面板內容在平板畫面內", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await enter(page);
+  await pick(page, "選舉班級幹部", "主席");
+  const fits = async () =>
+    page.evaluate(() => {
+      const b = document.querySelector(".mission-body") as HTMLElement;
+      return b.scrollHeight <= b.clientHeight + 2;
+    });
+  expect(await fits()).toBe(true);
+  await page.getByRole("button", { name: "先略過" }).click();
+  expect(await fits()).toBe(true);
 });
