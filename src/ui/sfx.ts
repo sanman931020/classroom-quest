@@ -56,6 +56,12 @@ class Audio {
   private nextTime = 0;
   private step = 0;
   private playing = false;
+  private bpm = 88;
+
+  /** 調整背景音樂速度（短片時較輕快） */
+  setTempo(bpm: number) {
+    this.bpm = bpm;
+  }
 
   configure(enabled: boolean, volume: number, music = true) {
     this.enabled = enabled;
@@ -185,9 +191,9 @@ class Audio {
       this.playing = true;
       this.step = 0;
       this.nextTime = ctx.currentTime + 0.2;
-      const eighth = 60 / 88 / 2;
       const tick = () => {
         if (!this.ctx || !this.musicGain) return;
+        const eighth = 60 / this.bpm / 2;
         while (this.nextTime < this.ctx.currentTime + 0.4) {
           const bar = Math.floor(this.step / 8) % this.melody.length;
           const pos = this.step % 8;

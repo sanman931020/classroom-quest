@@ -37,6 +37,7 @@ import { Portrait, type Look, type Mood } from "../art/Character";
 import { SEATS, type CastMember } from "../scenes/Classroom";
 import { MeetingScene } from "../scenes3d/MeetingScene";
 import { sfx } from "../ui/sfx";
+import type { ShortId } from "../shorts/shortsData";
 import { usePrefs } from "../ui/prefs";
 
 export type Chapter = "topic" | "election" | "proposal" | "meeting" | "impact" | "reflect";
@@ -46,6 +47,7 @@ export type MeetingProps = ActivityProps & {
   goHome: () => void;
   openSheets: () => void;
   openHandbook: () => void;
+  openShort: (id: ShortId) => void;
   startChapter?: Chapter | null;
 };
 
@@ -83,7 +85,7 @@ function speakerOf(d: Decision, topic: TopicId, role: MeetingRole): { look: Look
   return { look: d.speaker, name: NAME[d.speaker], role: roleLabel, text };
 }
 
-export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets, openHandbook, startChapter }: MeetingProps) {
+export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets, openHandbook, openShort, startChapter }: MeetingProps) {
   const m = s.meeting;
   const e = s.election;
   const { reduced } = usePrefs();
@@ -667,6 +669,11 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
           ))}
         </ol>
         {resultCard}
+        {e.step === 0 && !e.winner && (
+          <button className="short-cta" onClick={() => openShort("election")}>
+            <Icon name="play" size={20} /> 先看小短片：選幹部四步驟（1:08）
+          </button>
+        )}
         {matching ? (
           <div className="task-card">
             <h3 className="task-title">先認識：幹部做什麼？</h3>
@@ -930,6 +937,11 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
             程序 {m.step + 1}：{meetingSteps[m.step]}
           </h3>
           <p className="small">{pendingDecision(m.step) ? "先在左邊的對話框選擇你的做法。" : "按下方按鈕完成這個程序。"}</p>
+          {m.step === 0 && (
+            <button className="short-cta" onClick={() => openShort("meeting")}>
+              <Icon name="play" size={20} /> 先看小短片：開班會囉！（1:16）
+            </button>
+          )}
           {m.step === 4 && (
             <Field
               label="臨時動議紀錄（沒有可填無）"
@@ -1053,6 +1065,9 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
             <Icon name="flag" size={16} /> 決議：分區（6／18／4 票）
           </p>
           <p className="small">小米還擔心太吵。可以怎麼照顧少數？（可複選）</p>
+          <button className="short-cta" onClick={() => openShort("majority")}>
+            <Icon name="play" size={20} /> 小短片：服從多數，尊重少數（0:56）
+          </button>
           <div className="measure-list">
             {MEASURES.map((ms) => (
               <button key={ms.id} className={`measure ${ext.measures.includes(ms.id) ? (ms.good ? "is-on" : "is-bad") : ""}`} aria-pressed={ext.measures.includes(ms.id)} onClick={() => toggleMeasure(ms.id)}>

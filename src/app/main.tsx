@@ -12,7 +12,8 @@ import { type CastMember } from "../scenes/Classroom";
 import { MeetingScene } from "../scenes3d/MeetingScene";
 import { Icon } from "../components/icons";
 import { Overlay, Toast } from "../components/ui";
-import { MicButton } from "../components/VoiceInput";
+import { ShortList, ShortPlayer } from "../shorts/ShortPlayer";
+import type { ShortId } from "../shorts/shortsData";
 import { Portrait, type Mood } from "../art/Character";
 import { PrefsProvider, usePrefs } from "../ui/prefs";
 import { sfx } from "../ui/sfx";
@@ -20,7 +21,7 @@ import "@fontsource/bpmf-huninn/400.css";
 import "../ui/tokens.css";
 import "./styles.css";
 
-type OverlayId = null | "pause" | "settings" | "help" | "chapters" | "teacher" | "sheets" | "handbook";
+type OverlayId = null | "pause" | "settings" | "help" | "chapters" | "teacher" | "sheets" | "handbook" | "shorts";
 
 const CHAPTERS: { id: Chapter; topic: "election" | "proposal" | null; title: string; text: string; pages: string }[] = [
   { id: "topic", topic: null, title: "選主題與角色", text: "選擇要討論的主題，並扮演主席、司儀、記錄或學生。", pages: "課本 p.7" },
@@ -62,6 +63,7 @@ function App() {
   const [startChapter, setStartChapter] = useState<Chapter | null>(null);
   const [mountKey, setMountKey] = useState(0);
   const [intro, setIntro] = useState(0);
+  const [short, setShort] = useState<ShortId | null>(null);
 
   function update(fn: (draft: Progress) => void) {
     setS((prev) => {
@@ -164,6 +166,7 @@ function App() {
               goHome={() => navigate("home")}
               openSheets={() => setOverlay("sheets")}
               openHandbook={() => setOverlay("handbook")}
+              openShort={(id) => setShort(id)}
               startChapter={startChapter}
             />
           </main>
@@ -214,7 +217,27 @@ function App() {
         </Overlay>
       )}
       {overlay === "settings" && <Settings onClose={() => setOverlay(null)} />}
-      {overlay === "handbook" && <Handbook onClose={() => setOverlay(null)} />}
+      {overlay === "handbook" && (
+        <Handbook
+          onClose={() => setOverlay(null)}
+          onShort={(id) => {
+            setOverlay(null);
+            setShort(id);
+          }}
+        />
+      )}
+      {overlay === "shorts" && (
+        <Overlay title="學習小短片" icon="play" wide onClose={() => setOverlay(null)}>
+          <p className="small">每部 1 分鐘左右，看完再去玩，會更容易懂喔！</p>
+          <ShortList
+            onPlay={(id) => {
+              setOverlay(null);
+              setShort(id);
+            }}
+          />
+        </Overlay>
+      )}
+      {short && <ShortPlayer id={short} onClose={() => setShort(null)} />}
       {overlay === "help" && <Help onClose={() => setOverlay(null)} />}
       {overlay === "chapters" && (
         <Overlay title="選擇章節" icon="map" wide onClose={() => setOverlay(null)}>
@@ -236,6 +259,10 @@ function App() {
         <Teacher
           s={s}
           ext={ext}
+          onShort={(id) => {
+            setOverlay(null);
+            setShort(id);
+          }}
           onClose={() => setOverlay(null)}
           go={(c, t) => navigate("meeting", c, t)}
           onExport={() => {
@@ -284,6 +311,13 @@ function Home({
 }) {
   const { prefs, setPrefs } = usePrefs();
   const [poke, setPoke] = useState<string | null>(null);
+  // 下課時間的教室：同學走動、換動作，讓首頁熱鬧一點
+  const [beat, setBeat] = useState(0);
+  useEffect(() => {
+    if (prefs.motion === "reduce") return;
+    const iv = window.setInterval(() => setBeat((b) => b + 1), 3200);
+    return () => window.clearInterval(iv);
+  }, [prefs.motion]);
   const ready = !!ext.className.trim() && !!ext.playerName.trim();
   const lines: Record<string, string> = {
     anan: `安安：${displayName(ext)}，今天的班會你想當什麼角色？`,
@@ -305,6 +339,14 @@ function Home({
     { key: "zhe", look: "zhe", gx: 5.9, gy: 1.6, pose: "stand", mood: mood("zhe", "thinking"), label: "和阿哲說話", onActivate: react("zhe") },
     { key: "anan", look: "anan", gx: 6.6, gy: 4.3, pose: "wave", mood: mood("anan", "happy"), label: "和安安說話", onActivate: react("anan") },
     { key: "teacher", look: "teacher", gx: 4.2, gy: 3.8, pose: "stand", mood: mood("teacher", "idle"), label: "和林老師說話", onActivate: react("teacher") },
+    // 其他同學：聊天、看書、玩球、走來走去
+    { key: "n1", look: "npc1", gx: 10.7, gy: 1.1, pose: "read", mood: "happy" },
+    { key: "n2", look: "npc2", gx: 9.0, gy: 3.3, pose: beat % 2 ? "point" : "stand", mood: beat % 2 ? "talking" : "happy" },
+    { key: "n3", look: "npc3", gx: 11.4, gy: 2.6, pose: beat % 3 === 0 ? "wave" : "stand", mood: "happy" },
+    { key: "n4", look: "npc4", gx: beat % 2 ? 7.2 : 10.2, gy: beat % 2 ? 3.9 : 4.4, pose: "stand", mood: "happy" },
+    { key: "n5", look: "npc5", gx: 11.8, gy: 4.6, pose: beat % 2 ? "raise" : "stand", mood: beat % 2 ? "happy" : "talking" },
+    { key: "n6", look: "npc6", gx: 7.6, gy: 0.9, pose: "read", mood: "thinking" },
+    { key: "n7", look: "npc7", gx: beat % 3 === 1 ? 7.2 : 9.8, gy: 5.4, pose: "stand", mood: "idle" },
   ];
   return (
     <div className="home">
@@ -326,14 +368,6 @@ function Home({
               <label className="field-label" htmlFor="my-class">
                 我的班級
               </label>
-              <MicButton
-                label="我的班級"
-                onText={(t) =>
-                  updateExt((x) => {
-                    x.className = t.replace(/\s/g, "").slice(0, 12);
-                  })
-                }
-              />
             </div>
             <input
               id="my-class"
@@ -341,7 +375,7 @@ function Home({
               type="text"
               value={ext.className}
               maxLength={12}
-              placeholder="例如：三年二班"
+              placeholder="如：三年二班"
               autoComplete="off"
               onChange={(e) => {
                 const v = e.target.value.slice(0, 12);
@@ -356,14 +390,6 @@ function Home({
               <label className="field-label" htmlFor="my-name">
                 我的名字
               </label>
-              <MicButton
-                label="我的名字"
-                onText={(t) =>
-                  updateExt((x) => {
-                    x.playerName = t.replace(/\s/g, "").slice(0, 8);
-                  })
-                }
-              />
             </div>
             <input
               id="my-name"
@@ -371,7 +397,7 @@ function Home({
               type="text"
               value={ext.playerName}
               maxLength={8}
-              placeholder="例如：小明"
+              placeholder="如：小明"
               autoComplete="off"
               onChange={(e) => {
                 const v = e.target.value.slice(0, 8);
@@ -402,10 +428,13 @@ function Home({
             <button className="btn btn-soft" disabled={!ready} onClick={() => open("chapters")}>
               <Icon name="map" /> 章節
             </button>
-            <button className="btn btn-soft" onClick={() => open("teacher")}>
-              <Icon name="teacher" /> 教師
+            <button className="btn btn-soft" onClick={() => open("shorts")}>
+              <Icon name="play" /> 小短片
             </button>
           </div>
+          <button className="btn btn-soft" onClick={() => open("teacher")}>
+            <Icon name="teacher" /> 教師入口
+          </button>
         </nav>
         <p className="small muted privacy">班級和名字只存在這台裝置，不會上傳。</p>
         <div className="home-tools">
@@ -647,6 +676,7 @@ function Sheets({ s, ext, onClose, onExport }: { s: Progress; ext: MeetingExt; o
 function Teacher({
   s,
   ext,
+  onShort,
   onClose,
   go,
   onExport,
@@ -654,6 +684,7 @@ function Teacher({
 }: {
   s: Progress;
   ext: MeetingExt;
+  onShort: (id: ShortId) => void;
   onClose: () => void;
   go: (c: Chapter, t: "election" | "proposal" | null) => void;
   onExport: () => void;
@@ -694,6 +725,8 @@ function Teacher({
             <li>表決以後，為什麼還要聽小米的擔心？</li>
             <li>你扮演的角色，哪一個決定最重要？為什麼？</li>
           </ul>
+          <h3 className="sub-title">學習小短片（可投影全班觀看）</h3>
+          <ShortList onPlay={onShort} />
         </div>
       )}
       {tab === "go" && (
@@ -780,12 +813,13 @@ function Intro({ step, ext, onNext, onSkip }: { step: number; ext: MeetingExt; o
 /* ------------------------------------------------------------------ */
 /* 班會小百科：正式流程與可能狀況                                       */
 /* ------------------------------------------------------------------ */
-function Handbook({ onClose }: { onClose: () => void }) {
+function Handbook({ onClose, onShort }: { onClose: () => void; onShort: (id: ShortId) => void }) {
   const [open, setOpen] = useState<number | null>(null);
   return (
     <Overlay title="班會小百科" icon="note" wide onClose={onClose}>
       <p className="small">標示「課本」的是課本內容；標示「遊戲延伸」的是常見的處理方式，實際做法可以和老師、全班一起約定。</p>
       <div className="handbook">
+        <ShortList onPlay={onShort} />
         <div className="hb-flows">
           {TOPICS.map((t) => (
             <div key={t.id} className="hb-flow">

@@ -11,8 +11,8 @@ async function enter(page: Page, cls = "四年五班", name = "小明", zhuyin =
     localStorage.setItem("classroom-quest-ui-v1", JSON.stringify({ zhuyin: z }));
   }, zhuyin);
   await page.reload();
-  await page.getByPlaceholder("例如：三年二班").fill(cls);
-  await page.getByPlaceholder("例如：小明").fill(name);
+  await page.getByPlaceholder("如：三年二班").fill(cls);
+  await page.getByPlaceholder("如：小明").fill(name);
   await expect(page.locator(".home-intro")).toContainText(`歡迎來到${cls}`);
 }
 
@@ -213,4 +213,22 @@ test("決策不需捲動：面板內容在平板畫面內", async ({ page }) => 
   expect(await fits()).toBe(true);
   await page.getByRole("button", { name: "先略過" }).click();
   expect(await fits()).toBe(true);
+});
+
+test("學習小短片：從首頁開啟、跳段、播完，並在遊戲中出現提示", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await enter(page);
+  await page.getByRole("button", { name: "小短片" }).click();
+  await page.getByRole("button", { name: /服從多數，尊重少數/ }).click();
+  const player = page.getByRole("dialog", { name: /小短片：服從多數/ });
+  await expect(player).toBeVisible();
+  await expect(player.locator(".short-time")).toContainText("0:56");
+  await player.getByRole("button", { name: /跳到第 6 段/ }).click();
+  await expect(player.getByText("看完了！")).toBeVisible({ timeout: 12_000 });
+  await page.screenshot({ path: "test-results/10-short.png" });
+  await player.getByRole("button", { name: "我看懂了" }).click();
+  await expect(player).toBeHidden();
+  // 遊戲中：選舉開始處有短片提示
+  await pick(page, "選舉班級幹部", "主席");
+  await expect(page.getByRole("button", { name: /先看小短片：選幹部四步驟/ })).toBeVisible();
 });

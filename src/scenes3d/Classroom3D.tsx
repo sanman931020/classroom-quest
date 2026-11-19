@@ -663,6 +663,59 @@ function Cubbies() {
   );
 }
 
+/** 下課時間的小道具：書包、球、紙飛機、地上的畫 */
+function RecessDecor({ reduced }: { reduced: boolean }) {
+  const ball = useRef<THREE.Mesh>(null);
+  const plane = useRef<THREE.Group>(null);
+  useFrame((st) => {
+    if (reduced) return;
+    const t = st.clock.elapsedTime;
+    if (ball.current) {
+      ball.current.position.y = 0.14 + Math.abs(Math.sin(t * 3)) * 0.35;
+      ball.current.position.x = 9.9 + Math.sin(t * 0.7) * 0.6;
+    }
+    if (plane.current) {
+      const k = (t * 0.25) % 1;
+      plane.current.position.set(6 + k * 5, 2.0 - Math.sin(k * Math.PI) * 0.6, 3.6 - k * 1.5);
+      plane.current.rotation.set(0, -0.5, Math.sin(t * 2) * 0.2);
+    }
+  });
+  const bags: [number, number, string][] = [
+    [12.78, 3.6, "#e98a7c"],
+    [12.78, 4.3, "#65afa5"],
+    [12.78, 5.0, "#d6b563"],
+    [12.78, 5.7, "#8fa8d6"],
+  ];
+  return (
+    <group>
+      {bags.map(([x, z, c], i) => (
+        <group key={i} position={[x, 1.13, z]}>
+          <mesh material={toon(c)}>
+            <boxGeometry args={[0.22, 0.34, 0.3]} />
+          </mesh>
+          <mesh material={toon("#fffaf0")} position={[-0.115, -0.05, 0]}>
+            <boxGeometry args={[0.02, 0.14, 0.2]} />
+          </mesh>
+        </group>
+      ))}
+      <mesh ref={ball} material={toon("#fffdf6")} position={[9.9, 0.14, 4.0]}>
+        <sphereGeometry args={[0.14, 16, 12]} />
+      </mesh>
+      <group ref={plane}>
+        <mesh material={toon("#fffaf0")} rotation={[0, 0, Math.PI / 2]}>
+          <coneGeometry args={[0.08, 0.32, 3]} />
+        </mesh>
+      </group>
+      <mesh material={toon("#f7edcf")} rotation={[-Math.PI / 2, 0, 0.3]} position={[8.2, 0.008, 4.6]}>
+        <planeGeometry args={[0.5, 0.36]} />
+      </mesh>
+      <mesh material={toon("#c8d6ee")} rotation={[-Math.PI / 2, 0, -0.4]} position={[8.7, 0.009, 4.9]}>
+        <planeGeometry args={[0.4, 0.3]} />
+      </mesh>
+    </group>
+  );
+}
+
 function Room({ positions, messy, mode, classLabel, board, proposalCard, voteBoard, reduced }: {
   positions: Progress["positions"];
   messy?: boolean;
@@ -797,6 +850,7 @@ function Room({ positions, messy, mode, classLabel, board, proposalCard, voteBoa
       <Shelf cx={sh.x} cz={sh.z} messy={messy} />
       <Mat cx={mt.x} cz={mt.z} />
       <Table cx={tb.x} cz={tb.z} />
+      {mode === "menu" && <RecessDecor reduced={reduced} />}
       <Plant x={12.4} z={0.45} />
       <Plant x={0.45} z={9.5} s={0.9} />
       <mesh material={toon("#d6b563")} position={[12.2, 0.22, 2.4]} scale={[1, 0.6, 1]}>
