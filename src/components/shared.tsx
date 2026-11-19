@@ -1,31 +1,26 @@
 import type { CharacterId, Progress } from "../game/types";
-import { characters } from "../data/content";
+import { Portrait, type Mood } from "../art/Character";
 export type ActivityProps = {
   s: Progress;
   update: (fn: (draft: Progress) => void) => void;
   notify: (message: string) => void;
 };
+/**
+ * 角色頭像（第二階段改為分層 SVG 角色）。保留 {id, small} 介面，
+ * 新增可選 mood；正式點陣素材可在 art/Character.tsx 統一替換。
+ */
 export function Avatar({
   id,
   small = false,
+  mood = "idle",
 }: {
   id: CharacterId;
   small?: boolean;
+  mood?: Mood;
 }) {
-  const c = characters.find((c) => c.id === id)!;
   return (
-    <span
-      className={`avatar ${small ? "small" : ""} ${id}`}
-      style={{ "--shirt": c.color } as React.CSSProperties}
-      aria-hidden="true"
-    >
-      <i className="hair" />
-      <i className="face">
-        <b className="eyes">{id === "zhe" ? "◎ ◎" : "• •"}</b>
-        <b className="smile">⌣</b>
-      </i>
-      <i className="body" />
-      {id === "anan" && <i className="clip" />}
+    <span className={`avatar ${small ? "small" : ""} ${id}`} aria-hidden="true">
+      <Portrait look={id} mood={mood} size={small ? 40 : 56} />
     </span>
   );
 }
@@ -48,17 +43,19 @@ export function Field({
   value,
   onChange,
   placeholder = "",
+  rows = 2,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  rows?: number;
 }) {
   return (
     <label className="field">
-      {label}
+      <span className="field-label">{label}</span>
       <textarea
-        rows={2}
+        rows={rows}
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}

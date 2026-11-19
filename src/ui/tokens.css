@@ -1,0 +1,120 @@
+/*
+ * 《我們這一班！》Design Tokens（第二階段）
+ * 所有顏色、字體、間距、圓角、陰影與動畫時間集中於此。
+ * 元件只引用 var(--token)，不直接寫死色碼。
+ */
+:root {
+  /* 品牌主色 */
+  --c-paper: #f7f2e8;
+  --c-teal: #65afa5;
+  --c-coral: #e98a7c;
+  --c-mustard: #d6b563;
+  --c-forest: #405d4a;
+
+  /* 衍生色 */
+  --c-paper-light: #fffcf5;
+  --c-paper-deep: #efe6d4;
+  --c-paper-edge: #e0d3bb;
+  --c-teal-light: #dff0ec;
+  --c-teal-deep: #3f8a80;
+  --c-coral-light: #fbe4df;
+  --c-coral-deep: #c9665a;
+  --c-mustard-light: #f7edcf;
+  --c-mustard-deep: #a8873a;
+  --c-forest-light: #e3ebe4;
+  --c-forest-deep: #2c4334;
+  --c-ink: #2f3f35;
+  --c-ink-soft: #5c6b60;
+  --c-ink-faint: #8a9488;
+  --c-wood: #c99a6b;
+  --c-wood-light: #e3c49d;
+  --c-sky: #bfe1ef;
+
+  /* 語意色（同時配合圖示與文字，不單靠顏色） */
+  --c-success: #4f9a6e;
+  --c-success-bg: #e2f2e7;
+  --c-warning: #b9862b;
+  --c-warning-bg: #fbf0d6;
+  --c-gentle-error: #c46a5c;
+  --c-gentle-error-bg: #fbe6e1;
+  --c-info: #4a8fa0;
+  --c-info-bg: #e0f0f3;
+  --c-focus: #c17c22;
+  --c-selected: #f0c95b;
+
+  /* 互動狀態 */
+  --state-hover-lift: -2px;
+  --state-press-scale: 0.97;
+
+  /* 字體 */
+  --font-ui: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-story: "LXGW WenKai TC", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", serif;
+  --fs-xs: 0.875rem; /* 14px 只用於非必要標記 */
+  --fs-sm: 1rem; /* 16px 正文下限 */
+  --fs-md: 1.125rem; /* 18px 對話 */
+  --fs-lg: 1.375rem; /* 22px 任務標題 */
+  --fs-xl: 1.75rem;
+  --fs-hero: clamp(2.2rem, 4.2vw, 3rem);
+  --lh-body: 1.65;
+
+  /* 間距（4px 基準） */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* 尺寸 */
+  --touch-min: 48px;
+  --hud-h: 60px;
+  --panel-w: clamp(330px, 34vw, 420px);
+
+  /* 圓角 */
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --r-pill: 999px;
+
+  /* 紙雕陰影：多層硬邊陰影模擬卡紙堆疊 */
+  --sh-paper-1: 0 1px 0 var(--c-paper-edge), 0 3px 6px rgba(80, 60, 30, 0.12);
+  --sh-paper-2: 0 2px 0 var(--c-paper-edge), 0 6px 0 -2px #d9cab0, 0 10px 18px rgba(80, 60, 30, 0.16);
+  --sh-paper-3: 0 3px 0 var(--c-paper-edge), 0 8px 0 -3px #d4c3a6, 0 18px 34px rgba(60, 45, 20, 0.22);
+  --sh-press: 0 1px 0 var(--c-paper-edge), 0 2px 3px rgba(80, 60, 30, 0.12);
+  --sh-glow-select: 0 0 0 3px var(--c-selected), 0 0 18px rgba(240, 201, 91, 0.55);
+
+  /* 動畫時間 */
+  --t-fast: 150ms;
+  --t-base: 240ms;
+  --t-slow: 350ms;
+  --t-scene: 600ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* 圖層 */
+  --z-scene: 1;
+  --z-hud: 20;
+  --z-dialog: 30;
+  --z-toast: 40;
+  --z-overlay: 60;
+  --z-wipe: 80;
+}
+
+/* 低動態：手動開啟或系統偏好（auto 模式） */
+:root[data-motion="reduce"] {
+  --t-fast: 1ms;
+  --t-base: 1ms;
+  --t-slow: 1ms;
+  --t-scene: 1ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-motion="auto"] {
+    --t-fast: 1ms;
+    --t-base: 1ms;
+    --t-slow: 1ms;
+    --t-scene: 1ms;
+  }
+}

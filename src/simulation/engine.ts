@@ -49,6 +49,8 @@ export function simulate(s: Progress) {
     pass: Object.values(c).every(Boolean) && needs && classified && space,
     checks: c,
     distance,
+    /** 第二階段新增（向後相容）：各條件結果，供角色表情與場景特效使用，避免視圖複製判斷式。 */
+    flags: { needs, classified, space },
     feedback: [
       !needs
         ? "安安：還有夥伴的需要沒聽到。"
