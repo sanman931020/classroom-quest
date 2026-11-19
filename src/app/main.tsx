@@ -2,27 +2,32 @@ import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Meeting, type Chapter } from "../activities/Meeting";
 import { initialProgress, meetingSteps } from "../data/content";
-import { DECISIONS, ROLES } from "../data/meetingStory";
+import { ROLES, TOPICS } from "../data/meetingStory";
+import { HANDBOOK } from "../data/electionStory";
+import { ALL_DECISIONS } from "../simulation/meetingImpact";
 import type { Progress, Scene } from "../game/types";
 import { load, save } from "../storage/progress";
-import { EXT_KEY, initialExt, loadExt, saveExt, type MeetingExt } from "../storage/meetingExt";
-import { Classroom, type CastMember } from "../scenes/Classroom";
+import { EXT_KEY, displayClass, displayName, initialExt, loadExt, saveExt, type MeetingExt } from "../storage/meetingExt";
+import { type CastMember } from "../scenes/Classroom";
+import { MeetingScene } from "../scenes3d/MeetingScene";
 import { Icon } from "../components/icons";
 import { Overlay, Toast } from "../components/ui";
 import { Portrait, type Mood } from "../art/Character";
 import { PrefsProvider, usePrefs } from "../ui/prefs";
 import { sfx } from "../ui/sfx";
+import "@fontsource/bpmf-huninn/400.css";
 import "../ui/tokens.css";
 import "./styles.css";
 
-type OverlayId = null | "pause" | "settings" | "help" | "chapters" | "teacher" | "sheets";
+type OverlayId = null | "pause" | "settings" | "help" | "chapters" | "teacher" | "sheets" | "handbook" | "profile";
 
-const CHAPTERS: { id: Chapter; title: string; text: string; pages: string }[] = [
-  { id: "election", title: "幹部選舉", text: "認識五種幹部，練習四步驟選舉。", pages: "課本 p.5–6" },
-  { id: "proposal", title: "提出問題", text: "會前寫好問題、提案和理由。", pages: "課本 p.9–10" },
-  { id: "meeting", title: "召開班會", text: "選擇角色，依六個程序開班會，聆聽不同意見後表決。", pages: "課本 p.7–12" },
-  { id: "impact", title: "觀察影響", text: "看看你的決定讓一週的閱讀角變得怎麼樣。", pages: "課本 p.12、p.16 延伸" },
-  { id: "reflect", title: "修正反思", text: "換一種做法比較結果，寫下學到什麼。", pages: "遊戲延伸" },
+const CHAPTERS: { id: Chapter; topic: "election" | "proposal" | null; title: string; text: string; pages: string }[] = [
+  { id: "topic", topic: null, title: "選主題與角色", text: "選擇要討論的主題，並扮演主席、司儀、記錄或學生。", pages: "課本 p.7" },
+  { id: "election", topic: "election", title: "選舉班級幹部", text: "提名人選 → 徵求附議，進行討論 → 舉手表決 → 宣布結果。", pages: "課本 p.5–6" },
+  { id: "proposal", topic: "proposal", title: "提出問題", text: "會前寫好問題、提案和理由。", pages: "課本 p.9–10" },
+  { id: "meeting", topic: "proposal", title: "召開班會", text: "依六個程序開班會，聆聽不同意見後表決。", pages: "課本 p.7–12" },
+  { id: "impact", topic: null, title: "觀察影響", text: "看看你的決定讓接下來一週變得怎麼樣。", pages: "遊戲延伸" },
+  { id: "reflect", topic: null, title: "修正反思", text: "換一種做法比較結果，寫下學到什麼。", pages: "遊戲延伸" },
 ];
 
 function exportAll(s: Progress, ext: MeetingExt) {
@@ -49,7 +54,7 @@ function App() {
     return st;
   });
   const [ext, setExt] = useState<MeetingExt>(loadExt);
-  const [message, notify] = useState(loaded.error || "歡迎來到三年二班！");
+  const [message, notify] = useState(loaded.error || "歡迎來到班會大挑戰！");
   const [storage, setStorage] = useState("正在讀取進度");
   const [overlay, setOverlay] = useState<OverlayId>(null);
   const [wipe, setWipe] = useState(false);
@@ -77,7 +82,11 @@ function App() {
     if (!saveExt(ext)) setStorage("儲存失敗，請匯出成果備份。");
   }, [ext]);
 
-  function navigate(scene: Scene, chapter: Chapter | null = null) {
+  function navigate(scene: Scene, chapter: Chapter | null = null, topic: "election" | "proposal" | null = null) {
+    if (topic)
+      updateExt((x) => {
+        x.topic = topic;
+      });
     sfx.play("whoosh");
     setOverlay(null);
     setWipe(true);
@@ -107,7 +116,9 @@ function App() {
             <div className="hud-title">
               <span className="hud-badge">班</span>
               <div>
-                <small>我們這一班！</small>
+                <small>
+                  {displayClass(ext)}・{displayName(ext)}
+                </small>
                 <b>班會大挑戰</b>
               </div>
             </div>
@@ -120,6 +131,10 @@ function App() {
               <Icon name="save" size={18} />
               <span className="hud-label">{storage.includes("失敗") ? "儲存失敗" : "已自動儲存"}</span>
             </span>
+            <button className="hud-btn" onClick={() => setOverlay("handbook")} aria-label="班會小百科">
+              <Icon name="note" />
+              <span className="hud-label">小百科</span>
+            </button>
             <button className="hud-btn" onClick={() => setOverlay("sheets")} aria-label="學習單">
               <Icon name="sheet" />
               <span className="hud-label">學習單</span>
@@ -146,6 +161,7 @@ function App() {
               updateExt={updateExt}
               goHome={() => navigate("home")}
               openSheets={() => setOverlay("sheets")}
+              openHandbook={() => setOverlay("handbook")}
               startChapter={startChapter}
             />
           </main>
@@ -153,8 +169,10 @@ function App() {
       ) : (
         <Home
           s={s}
+          ext={ext}
+          updateExt={updateExt}
           started={started}
-          onStart={() => navigate("meeting", started ? null : "election")}
+          onStart={() => navigate("meeting", "topic")}
           onContinue={() => navigate("meeting")}
           open={setOverlay}
           notify={notify}
@@ -188,13 +206,29 @@ function App() {
         </Overlay>
       )}
       {overlay === "settings" && <Settings onClose={() => setOverlay(null)} />}
+      {overlay === "handbook" && <Handbook onClose={() => setOverlay(null)} />}
+      {overlay === "profile" && (
+        <Overlay title="修改班級與名字" icon="teacher" onClose={() => setOverlay(null)}>
+          <ProfileForm
+            ext={ext}
+            onSave={(c, n) => {
+              updateExt((x) => {
+                x.className = c;
+                x.playerName = n;
+              });
+              setOverlay(null);
+              notify(`歡迎，${n}！`);
+            }}
+          />
+        </Overlay>
+      )}
       {overlay === "help" && <Help onClose={() => setOverlay(null)} />}
       {overlay === "chapters" && (
         <Overlay title="選擇章節" icon="map" wide onClose={() => setOverlay(null)}>
           <p className="small">班會大挑戰：提出問題 → 主持討論 → 聆聽不同意見 → 做出決定 → 觀察影響 → 修正反思</p>
           <div className="chapter-grid">
             {CHAPTERS.map((c, i) => (
-              <button key={c.id} className="chapter-card" onClick={() => navigate("meeting", c.id)}>
+              <button key={c.id} className="chapter-card" onClick={() => navigate("meeting", c.id, c.topic)}>
                 <span className="chapter-num">{i + 1}</span>
                 <b>{c.title}</b>
                 <span>{c.text}</span>
@@ -210,7 +244,7 @@ function App() {
           s={s}
           ext={ext}
           onClose={() => setOverlay(null)}
-          go={(c) => navigate("meeting", c)}
+          go={(c, t) => navigate("meeting", c, t)}
           onExport={() => {
             exportAll(s, ext);
             notify("學習成果已匯出為 JSON 檔。");
@@ -218,7 +252,7 @@ function App() {
           onReset={() => {
             const fresh = initialProgress();
             setS(fresh);
-            setExt(initialExt());
+            setExt((prev) => ({ ...initialExt(), className: prev.className, playerName: prev.playerName }));
             try {
               localStorage.removeItem(EXT_KEY);
             } catch {
@@ -238,6 +272,8 @@ function App() {
 /* ------------------------------------------------------------------ */
 function Home({
   s,
+  ext,
+  updateExt,
   started,
   onStart,
   onContinue,
@@ -245,6 +281,8 @@ function Home({
   notify,
 }: {
   s: Progress;
+  ext: MeetingExt;
+  updateExt: (fn: (d: MeetingExt) => void) => void;
   started: boolean;
   onStart: () => void;
   onContinue: () => void;
@@ -254,7 +292,7 @@ function Home({
   const { prefs, setPrefs } = usePrefs();
   const [poke, setPoke] = useState<string | null>(null);
   const lines: Record<string, string> = {
-    anan: "安安：今天的班會，你想當什麼角色？",
+    anan: `安安：${displayName(ext)}，今天的班會你想當什麼角色？`,
     mi: "小米：午休時，我想安安靜靜的看書。",
     hao: "浩浩：下課時，我們想一起討論漫畫！",
     zhe: "阿哲：上次有書被弄髒，還有一本不見了……",
@@ -277,7 +315,7 @@ function Home({
   return (
     <div className="home">
       <div className="home-scene">
-        <Classroom mode="menu" camera="menu" slice positions={s.positions} cast={cast} messy ariaLabel="三年二班教室，點角色可以聽他們說話" />
+        <MeetingScene mode="menu" camera="menu" slice positions={s.positions} cast={cast} messy classLabel={displayClass(ext)} ariaLabel={`${displayClass(ext)}教室，點角色可以聽他們說話`} />
         <div className="scene-paper" aria-hidden="true" />
       </div>
       <div className="home-panel">
@@ -288,10 +326,29 @@ function Home({
           </h1>
           <p className="logo-sub">Classroom Quest・班會大挑戰</p>
         </div>
-        <p className="home-intro">閱讀角怎麼用才公平？選一個班會角色，聽聽大家的想法，看看每個決定會帶來什麼影響。</p>
+        {!ext.playerName.trim() || !ext.className.trim() ? (
+          <>
+            <p className="home-intro">先告訴我們你的班級和名字，進入教室後就會用你的名字喔！</p>
+            <ProfileForm
+              ext={ext}
+              onSave={(c, n) => {
+                updateExt((x) => {
+                  x.className = c;
+                  x.playerName = n;
+                });
+                sfx.play("success");
+                notify(`歡迎來到${c}，${n}！`);
+              }}
+            />
+          </>
+        ) : (
+          <>
+        <p className="home-intro">
+          歡迎來到<b>{displayClass(ext)}</b>，<b>{displayName(ext)}</b>！選一個討論主題和班會角色，看看每個決定會帶來什麼影響。
+        </p>
         <nav className="home-menu" aria-label="主選單">
           <button className="btn btn-primary btn-big" onClick={onStart}>
-            <Icon name="play" /> {started ? "開始探索" : "開始探索"}
+            <Icon name="play" /> 開始探索
           </button>
           <button className="btn btn-soft" disabled={!started} onClick={onContinue}>
             <Icon name="next" /> 繼續遊戲
@@ -303,6 +360,8 @@ function Home({
             <Icon name="teacher" /> 教師入口
           </button>
         </nav>
+          </>
+        )}
         <div className="home-tools">
           <button className="icon-btn" aria-label={prefs.sound ? "關閉音效" : "開啟音效"} aria-pressed={prefs.sound} onClick={() => setPrefs((p) => ({ ...p, sound: !p.sound }))}>
             <Icon name={prefs.sound ? "sound" : "mute"} />
@@ -313,6 +372,14 @@ function Home({
           <button className="icon-btn" aria-label="操作說明" onClick={() => open("help")}>
             <Icon name="help" />
           </button>
+          <button className="icon-btn" aria-label="班會小百科" onClick={() => open("handbook")}>
+            <Icon name="note" />
+          </button>
+          {ext.playerName && (
+            <button className="icon-btn" aria-label="修改班級與名字" onClick={() => open("profile")}>
+              <Icon name="teacher" />
+            </button>
+          )}
           <span className="home-status">
             {s.meeting.done ? (
               <>
@@ -379,6 +446,31 @@ function Settings({ onClose }: { onClose: () => void }) {
         </div>
         <label className="setting-row">
           <span>
+            <b>注音</b>
+            <small>國字旁顯示注音符號</small>
+          </span>
+          <input type="checkbox" className="switch" checked={prefs.zhuyin} onChange={(e) => setPrefs((p) => ({ ...p, zhuyin: e.target.checked }))} />
+        </label>
+        <div className="setting-row">
+          <span>
+            <b>場景</b>
+            <small>3D 教室或平面教室（較舊的平板建議平面）</small>
+          </span>
+          <div className="seg" role="group" aria-label="場景">
+            {(
+              [
+                ["3d", "3D"],
+                ["2d", "平面"],
+              ] as const
+            ).map(([v, l]) => (
+              <button key={v} className={prefs.view === v ? "is-on" : ""} aria-pressed={prefs.view === v} onClick={() => setPrefs((p) => ({ ...p, view: v }))}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+        <label className="setting-row">
+          <span>
             <b>省電模式</b>
             <small>關閉水彩濾鏡與粒子，適合較舊的平板</small>
           </span>
@@ -394,7 +486,7 @@ function Settings({ onClose }: { onClose: () => void }) {
 /* ------------------------------------------------------------------ */
 function Help({ onClose }: { onClose: () => void }) {
   const items: { icon: Parameters<typeof Icon>[0]["name"]; title: string; text: string }[] = [
-    { icon: "tap", title: "點一點", text: "點教室裡的同學，可以邀請他舉手發言。" },
+    { icon: "tap", title: "點一點", text: "點教室裡的同學，可以邀請他舉手發言。拖曳畫面可以轉動 3D 教室。" },
     { icon: "hand", title: "輪流發言", text: "同學舉手後，依照順序一個一個說，聽完再請下一位。" },
     { icon: "bulb", title: "做決定", text: "對話框出現時，選一個做法，看看會帶來什麼影響。" },
     { icon: "faceHappy", title: "看結果", text: "上方三條儀表會改變，最後還能看到一週後的閱讀角。" },
@@ -424,7 +516,7 @@ function Help({ onClose }: { onClose: () => void }) {
 function Sheets({ s, ext, onClose, onExport }: { s: Progress; ext: MeetingExt; onClose: () => void; onExport: () => void }) {
   const [tab, setTab] = useState<"proposal" | "minutes" | "decisions">("proposal");
   const role = ROLES.find((r) => r.id === ext.role);
-  const made = DECISIONS.filter((d) => ext.choices[d.id]);
+  const made = ALL_DECISIONS.filter((d) => ext.choices[d.id]);
   return (
     <Overlay title="我的學習單" icon="sheet" wide onClose={onClose}>
       <div className="seg sheet-tabs" role="tablist">
@@ -506,7 +598,7 @@ function Teacher({
   s: Progress;
   ext: MeetingExt;
   onClose: () => void;
-  go: (c: Chapter) => void;
+  go: (c: Chapter, t: "election" | "proposal" | null) => void;
   onExport: () => void;
   onReset: () => void;
 }) {
@@ -529,7 +621,7 @@ function Teacher({
       </div>
       {tab === "goals" && (
         <div className="teacher-goals">
-          <p>對應課本「2 召開班級會議」p.5–12（依小組排版稿）。學生選擇主席、司儀、記錄或學生角色，在相同的六個程序中遇到不同的常見狀況，並觀察選擇造成的影響。</p>
+          <p>對應課本「1 班級的自治活動」與「2 召開班級會議」p.5–12（依小組排版稿）。學生先選討論主題（選舉班級幹部／班會提案），再扮演主席、司儀、記錄或學生；每個角色在課本規定的步驟中，會遇到國小中年級常見的狀況，並觀察選擇造成的影響。</p>
           <ul>
             <li>知道幹部是為大家服務的人，能說出選舉四步驟。（p.5–6）</li>
             <li>能說出主席、司儀、記錄的工作，依正式六步驟進行班會。（p.7–8）</li>
@@ -550,7 +642,7 @@ function Teacher({
       {tab === "go" && (
         <div className="chapter-grid">
           {CHAPTERS.map((c, i) => (
-            <button key={c.id} className="chapter-card" onClick={() => go(c.id)}>
+            <button key={c.id} className="chapter-card" onClick={() => go(c.id, c.topic)}>
               <span className="chapter-num">{i + 1}</span>
               <b>{c.title}</b>
               <span>{c.text}</span>
@@ -587,6 +679,72 @@ function Teacher({
       )}
       <div className="teacher-cast" aria-hidden="true">
         <Portrait look="teacher" mood="happy" size={56} />
+      </div>
+    </Overlay>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 班級與名字（只存在這台裝置）                                         */
+/* ------------------------------------------------------------------ */
+function ProfileForm({ ext, onSave }: { ext: MeetingExt; onSave: (cls: string, name: string) => void }) {
+  const [cls, setCls] = useState(ext.className);
+  const [name, setName] = useState(ext.playerName);
+  const ok = !!cls.trim() && !!name.trim();
+  return (
+    <form
+      className="profile-form"
+      onSubmit={(ev) => {
+        ev.preventDefault();
+        if (ok) onSave(cls.trim().slice(0, 12), name.trim().slice(0, 8));
+      }}
+    >
+      <label className="field">
+        <span className="field-label">我的班級</span>
+        <input type="text" value={cls} maxLength={12} placeholder="例如：三年二班" onChange={(e) => setCls(e.target.value)} autoComplete="off" />
+      </label>
+      <label className="field">
+        <span className="field-label">我的名字</span>
+        <input type="text" value={name} maxLength={8} placeholder="例如：小明" onChange={(e) => setName(e.target.value)} autoComplete="off" />
+      </label>
+      <button className="btn btn-primary btn-big" type="submit" disabled={!ok}>
+        <Icon name="play" /> 進入教室
+      </button>
+      <p className="small muted">班級和名字只會存在這台裝置，不會上傳。</p>
+    </form>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 班會小百科：正式流程與可能狀況                                       */
+/* ------------------------------------------------------------------ */
+function Handbook({ onClose }: { onClose: () => void }) {
+  const [open, setOpen] = useState<number | null>(null);
+  return (
+    <Overlay title="班會小百科" icon="note" wide onClose={onClose}>
+      <p className="small">標示「課本」的是課本內容；標示「遊戲延伸」的是常見的處理方式，實際做法可以和老師、全班一起約定。</p>
+      <div className="handbook">
+        <div className="hb-flows">
+          {TOPICS.map((t) => (
+            <div key={t.id} className="hb-flow">
+              <b>{t.title}</b>
+              <ol>
+                {t.steps.map((st) => (
+                  <li key={st}>{st}</li>
+                ))}
+              </ol>
+            </div>
+          ))}
+        </div>
+        {HANDBOOK.map((h, i) => (
+          <div key={h.q} className={`hb-item ${open === i ? "is-open" : ""}`}>
+            <button className="hb-q" aria-expanded={open === i} onClick={() => setOpen(open === i ? null : i)}>
+              <span>{h.q}</span>
+              <span className={`hb-src ${h.src === "課本" ? "is-book" : ""}`}>{h.src}</span>
+            </button>
+            {open === i && <p className="hb-a">{h.a}</p>}
+          </div>
+        ))}
       </div>
     </Overlay>
   );

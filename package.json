@@ -12,13 +12,18 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@fontsource/bpmf-huninn": "^5.3.1",
+    "@react-three/drei": "^10.0.6",
+    "@react-three/fiber": "^9.1.2",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "three": "^0.170.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "@types/three": "^0.170.0",
     "eslint": "^9.39.1",
     "prettier": "^3.10.1",
     "typescript": "^5.9.3",

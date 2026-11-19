@@ -1,4 +1,5 @@
-import { DECISIONS, MEASURES, PLAN_IDS, ROLES, STAKEHOLDERS, type MeetingRole, type PlanId, type StakeholderId } from "../data/meetingStory";
+import { DECISIONS, MEASURES, PLAN_IDS, ROLES, STAKEHOLDERS, TOPICS, type MeetingRole, type PlanId, type StakeholderId, type TopicId } from "../data/meetingStory";
+import { ELECTION_DECISIONS } from "../data/electionStory";
 
 /**
  * 班會決策紀錄（第二階段新增）。
@@ -7,6 +8,11 @@ import { DECISIONS, MEASURES, PLAN_IDS, ROLES, STAKEHOLDERS, type MeetingRole, t
  */
 export interface MeetingExt {
   version: 1;
+  /** 學生的班級與名字（只存在本機，不上傳） */
+  className: string;
+  playerName: string;
+  /** 目前選擇的討論主題 */
+  topic: TopicId | null;
   /** 學生選擇扮演的班會角色（尚未選擇為 null） */
   role: MeetingRole | null;
   /** 角色決策：decisionId → optionId */
@@ -27,7 +33,7 @@ export interface MeetingExt {
 export const EXT_KEY = "classroom-quest-meeting-v1";
 
 export function initialExt(): MeetingExt {
-  return { version: 1, role: null, choices: {}, predictions: {}, measures: [], cards: [], officers: [], whatIf: "B", reflection: "" };
+  return { version: 1, className: "", playerName: "", topic: null, role: null, choices: {}, predictions: {}, measures: [], cards: [], officers: [], whatIf: "B", reflection: "" };
 }
 
 const strArr = (v: unknown, allowed?: string[]) =>
@@ -41,7 +47,7 @@ export function restoreExt(raw: string | null): MeetingExt {
     if (!p || p.version !== 1) return d;
     const choices: Record<string, string> = {};
     if (p.choices && typeof p.choices === "object")
-      for (const dec of DECISIONS) {
+      for (const dec of [...ELECTION_DECISIONS, ...DECISIONS]) {
         const v = p.choices[dec.id];
         if (dec.options.some((o) => o.id === v)) choices[dec.id] = v;
       }
@@ -53,6 +59,9 @@ export function restoreExt(raw: string | null): MeetingExt {
       }
     return {
       version: 1,
+      className: typeof p.className === "string" ? p.className.slice(0, 12) : "",
+      playerName: typeof p.playerName === "string" ? p.playerName.slice(0, 8) : "",
+      topic: TOPICS.some((t) => t.id === p.topic) ? p.topic : null,
       role: ROLES.some((r) => r.id === p.role) ? p.role : null,
       choices,
       predictions,
@@ -82,3 +91,7 @@ export function saveExt(e: MeetingExt) {
     return false;
   }
 }
+
+/** 顯示用名稱（未填寫時的預設） */
+export const displayClass = (e: MeetingExt) => e.className.trim() || "我們班";
+export const displayName = (e: MeetingExt) => e.playerName.trim() || "我";

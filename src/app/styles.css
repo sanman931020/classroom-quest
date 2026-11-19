@@ -407,7 +407,7 @@ textarea:focus, select:focus { border-color: var(--c-teal); outline: none; box-s
   opacity: 0; pointer-events: none; transition: opacity var(--t-base), transform var(--t-base) var(--ease-out); font-weight: 500;
 }
 .toast.is-shown { opacity: 1; transform: translate(-50%, 0); }
-.game .toast { left: calc((100% - var(--panel-w)) / 2); bottom: auto; top: calc(var(--hud-h) + 64px); }
+.app:has(.game) .toast { left: calc((100% - var(--panel-w)) / 2); bottom: auto; top: calc(var(--hud-h) + 64px); }
 
 /* 場景轉換：紙張圓形展開 */
 .wipe { position: fixed; inset: 0; z-index: var(--z-wipe); background: var(--c-paper); animation: wipe 480ms var(--ease-in-out) both; pointer-events: none; }
@@ -512,7 +512,7 @@ textarea:focus, select:focus { border-color: var(--c-teal); outline: none; box-s
   .play { grid-template-columns: 1fr; grid-template-rows: 46% 54%; }
   .mission { border-left: none; border-top: 2px solid var(--c-paper-edge); }
   .home-panel { left: 50%; top: auto; bottom: 16px; transform: translateX(-50%); width: calc(100% - 32px); animation: none; }
-  .game .toast { left: 50%; }
+  .app:has(.game) .toast { left: 50%; }
   .hud-progress { display: none; }
   .meters { min-width: 0; }
 }
@@ -528,3 +528,71 @@ textarea:focus, select:focus { border-color: var(--c-teal); outline: none; box-s
   .overlay-card { box-shadow: none; border: none; max-height: none; }
   .overlay-head button, .foot-row, .sheet-tabs { display: none; }
 }
+
+/* ================= 3D 場景 ================= */
+.scene3d { position: absolute; inset: 0; touch-action: none; }
+.home-scene .scene3d { position: absolute; inset: 0; }
+.scene3d canvas { display: block; outline: none; }
+.scene-loading { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 700; color: var(--c-forest); }
+.tag3d { display: grid; justify-items: center; gap: 2px; transform: translateY(-50%); user-select: none; }
+.marker3d {
+  display: grid; place-items: center; min-width: 44px; height: 44px; padding: 0 8px; border-radius: 22px;
+  border: 3px solid #fffaf0; background: var(--c-coral); color: #fff; font-weight: 900; font-size: 20px;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.15), 0 6px 14px rgba(40, 30, 20, 0.25); animation: bob 1.6s ease-in-out infinite;
+}
+button.marker3d { cursor: pointer; }
+.marker3d.m-check { background: var(--c-success); }
+.marker3d.m-hand { background: var(--c-mustard); animation-duration: 0.8s; }
+.marker3d.m-talk { background: var(--c-teal); }
+.marker3d.m-idea { background: var(--c-coral); }
+.marker3d.m-confused, .marker3d.m-thinking { background: #fffaf0; color: var(--c-ink); border-color: var(--c-ink-soft); }
+.marker3d.m-worried { background: #9fd0e6; }
+.marker3d.m-ghost { background: rgba(255, 250, 240, 0.9); color: var(--c-forest); border-color: var(--c-teal); }
+.marker3d .dots { letter-spacing: 2px; }
+.name3d {
+  padding: 1px 10px; border-radius: var(--r-pill); background: rgba(255, 252, 245, 0.92); color: var(--c-ink);
+  font-size: 13px; font-weight: 700; white-space: nowrap; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+.name3d.is-me { background: var(--c-coral); color: #fff; }
+:root[data-motion="reduce"] .marker3d { animation: none; }
+
+/* 主題與角色選擇 */
+.topic-picker { display: grid; gap: var(--sp-2); }
+.topic-card {
+  display: grid; gap: 2px; padding: var(--sp-3); text-align: left; border-radius: var(--r-lg);
+  border: 2px solid var(--c-paper-edge); background: #fff; box-shadow: var(--sh-paper-1);
+}
+.topic-card b { font-family: var(--font-story); font-size: var(--fs-lg); color: var(--c-forest); }
+.topic-card small { color: var(--c-teal-deep); font-weight: 700; }
+.topic-card.is-on, .role-card.is-on { border-color: var(--c-coral); background: var(--c-coral-light); box-shadow: var(--sh-glow-select); }
+
+/* 入口：班級與名字 */
+.profile-form { display: grid; gap: var(--sp-3); }
+.profile-form input { font-size: var(--fs-md); }
+
+/* 班會小百科 */
+.handbook { display: grid; gap: 6px; }
+.hb-flows { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.hb-flow { padding: var(--sp-3); border-radius: var(--r-md); background: var(--c-teal-light); }
+.hb-flow b { color: var(--c-teal-deep); }
+.hb-flow ol { margin: 4px 0 0; padding-left: 1.4em; }
+.hb-item { border-radius: var(--r-md); background: #fff; border: 2px solid var(--c-paper-edge); }
+.hb-item.is-open { border-color: var(--c-mustard); }
+.hb-q { width: 100%; min-height: 48px; display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); padding: 8px 12px; border: none; background: transparent; font-weight: 700; text-align: left; }
+.hb-src { flex: none; font-size: 0.75rem; padding: 2px 8px; border-radius: var(--r-pill); background: var(--c-mustard-light); color: var(--c-mustard-deep); }
+.hb-src.is-book { background: var(--c-teal-light); color: var(--c-teal-deep); }
+.hb-a { padding: 0 12px 12px; }
+/* DOM 標記（drei Html）在場景之上、介面之下 */
+.home-panel { z-index: 40; }
+.meters, .scene-chip { z-index: 25; }
+.dialogue-slot { z-index: 45; }
+/* 儀表改為橫向精簡版，避免與提示泡泡重疊 */
+.meters { display: flex; gap: 10px; padding: 6px 10px; min-width: 0; }
+.meter { grid-template-columns: auto; gap: 2px; font-size: 0.78rem; width: 96px; }
+.meter span { white-space: nowrap; }
+.meter b { display: none; }
+.meter-bar { height: 8px; }
+.app:has(.game) .toast { top: calc(var(--hud-h) + 78px); }
+.step-tab { font-size: 0.85rem; }
+:root[data-zhuyin="on"] .step-label, :root[data-zhuyin="on"] .meter span { letter-spacing: -0.02em; }
+:root[data-zhuyin="on"] .logo h1 { font-size: clamp(1.8rem, 3.2vw, 2.4rem); white-space: nowrap; }

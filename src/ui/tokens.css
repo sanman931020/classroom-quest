@@ -118,3 +118,10 @@
     --t-scene: 1ms;
   }
 }
+
+/* 注音模式：使用「Bpmf Huninn 粉圓注音」（OFL-1.1），國字右側自動顯示注音 */
+:root[data-zhuyin="on"] {
+  --font-ui: "Bpmf Huninn", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-story: "Bpmf Huninn", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", serif;
+  --lh-body: 1.85;
+}

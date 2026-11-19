@@ -1,217 +1,172 @@
-import { test, expect } from "@playwright/test";
-test("觸控拖曳、觸控替代與三場景平板版面", async ({ browser }) => {
-  const context = await browser.newContext({
-    hasTouch: true,
-    viewport: { width: 1024, height: 768 },
-  });
-  const page = await context.newPage();
-  await page.goto("http://127.0.0.1:5189/");
-  await page.getByRole("button", { name: /閱讀角改造計畫/ }).tap();
-  await page.getByLabel("教室家具配置").scrollIntoViewIfNeeded();
-  const source = await page
-    .getByRole("button", { name: "選取討論桌椅" })
-    .boundingBox();
-  const target = await page
-    .getByRole("button", { name: "放置家具於第8欄第1排" })
-    .boundingBox();
-  const cdp = await context.newCDPSession(page);
-  const start = {
-    x: source!.x + source!.width / 2,
-    y: source!.y + source!.height / 2,
-  };
-  const end = {
-    x: target!.x + target!.width / 2,
-    y: target!.y + target!.height / 2,
-  };
-  await cdp.send("Input.dispatchTouchEvent", {
-    type: "touchStart",
-    touchPoints: [start],
-  });
-  await cdp.send("Input.dispatchTouchEvent", {
-    type: "touchMove",
-    touchPoints: [end],
-  });
-  await cdp.send("Input.dispatchTouchEvent", {
-    type: "touchEnd",
-    touchPoints: [],
-  });
-  await expect(
-    page.getByRole("button", { name: "選取討論桌椅" }),
-  ).toHaveAttribute("style", /left: 88/);
-  await page.getByRole("button", { name: "討論桌椅", exact: true }).tap();
-  await page.getByRole("button", { name: "放置家具於第7欄第1排" }).tap();
-  await expect(
-    page.getByRole("button", { name: "選取討論桌椅" }),
-  ).toHaveAttribute("style", /left: 76/);
-  await page.getByRole("button", { name: "返回活動地圖" }).tap();
-  for (const activity of ["閱讀角改造計畫", "班會大挑戰", "校園服務特攻隊"]) {
-    await page.getByRole("button", { name: new RegExp(activity) }).tap();
-    for (const [width, height] of [
-      [1024, 768],
-      [1280, 800],
-    ]) {
-      await page.setViewportSize({ width, height });
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= window.innerWidth,
-        ),
-      ).toBe(true);
-    }
-    if (activity === "校園服務特攻隊")
-      await page.screenshot({
-        path: "test-results/service.png",
-        fullPage: true,
-      });
-    await page.getByRole("button", { name: "返回活動地圖" }).tap();
-  }
-  await context.close();
-});
-test("閱讀角完整改造與滑鼠拖曳", async ({ page }) => {
+import { test, expect, type Page } from "@playwright/test";
+
+test.use({ viewport: { width: 1024, height: 768 } });
+test.setTimeout(150_000);
+
+async function enter(page: Page, cls = "四年五班", name = "小明") {
   await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: /快樂的班級生活/ }),
-  ).toBeVisible();
-  await page.screenshot({
-    path: "test-results/home.png",
-    fullPage: false,
-    animations: "disabled",
-  });
-  await page.getByRole("button", { name: /閱讀角改造計畫/ }).click();
-  for (const [name, category] of [
-    ["安安", "公平使用"],
-    ["阿哲", "環境整理"],
-    ["小米", "聲音干擾"],
-    ["浩浩", "公平使用"],
-    ["林老師", "公約原則"],
-  ]) {
-    await page
-      .getByRole("button", { name: new RegExp(name + ".*聊一聊") })
-      .click();
-    await page.getByLabel(name + "問題分類").selectOption(category);
-  }
-  await page.getByRole("button", { name: "我可以怎麼幫忙？" }).click();
-  await expect(
-    page.getByText("模擬是練習；實際試行後，還要聽聽每一位同學。"),
-  ).toBeVisible();
-  await page.getByLabel("什麼時間？").fill("午休時");
-  await page.getByLabel("要怎麼做？").fill("閱讀小聲，討論到討論桌");
-  await page.getByLabel("我已照顧安靜與討論兩種需要").check();
-  await page.getByLabel("我們有時間、空間和物品做到").check();
-  await page.getByLabel("教室家具配置").scrollIntoViewIfNeeded();
-  const table = await page
-    .getByRole("button", { name: "選取討論桌椅" })
-    .boundingBox();
-  const target = await page
-    .getByRole("button", { name: "放置家具於第8欄第1排" })
-    .boundingBox();
-  await page.mouse.move(
-    table!.x + table!.width / 2,
-    table!.y + table!.height / 2,
-  );
-  await page.mouse.down();
-  await page.mouse.move(
-    target!.x + target!.width / 2,
-    target!.y + target!.height / 2,
-    { steps: 12 },
-  );
-  await page.mouse.up();
-  await page.getByRole("button", { name: "啟動情境模擬" }).click();
-  await expect(page.getByText("改造計畫通過！")).toBeVisible();
-  await page.screenshot({ path: "test-results/reading.png", fullPage: true });
+  await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await expect(page.getByText("✓ 公約小檢查已完成並儲存")).toBeVisible();
-  await page.getByRole("button", { name: "重設家具" }).click();
-  await page.getByRole("button", { name: "啟動情境模擬" }).click();
-  await expect(page.getByText("再調整一下")).toBeVisible();
+  await page.getByPlaceholder("例如：三年二班").fill(cls);
+  await page.getByPlaceholder("例如：小明").fill(name);
+  await page.getByRole("button", { name: "進入教室" }).click();
+  await expect(page.locator(".home-intro")).toContainText(`歡迎來到${cls}`);
+}
+
+async function choose(page: Page, label: string | RegExp) {
+  await page.locator(".dialogue-choices").getByRole("button", { name: label }).click();
+}
+
+async function pick(page: Page, topic: string, role: string) {
+  await page.getByRole("button", { name: "開始探索" }).click();
+  await page.getByRole("group", { name: "討論主題" }).getByRole("button", { name: new RegExp(topic) }).click();
+  await page.getByRole("group", { name: "班會角色" }).getByRole("button", { name: new RegExp(`^${role}`) }).click();
+  await page.getByRole("button", { name: /開始！/ }).click();
+}
+
+test("入口輸入班級與名字，畫面帶入", async ({ page }) => {
+  await enter(page);
+  await page.screenshot({ path: "test-results/01-home.png" });
+  await page.getByRole("button", { name: "開始探索" }).click();
+  await expect(page.getByText("小明，今天的班會要討論什麼？")).toBeVisible();
+  await expect(page.locator(".hud-title")).toContainText("四年五班・小明");
+  await page.screenshot({ path: "test-results/02-topic.png" });
+  await page.reload();
+  await expect(page.locator(".hud-title")).toContainText("四年五班・小明");
 });
-test("班會完整選舉、發言與決議紀錄", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: /班會大挑戰/ }).click();
-  await page.getByRole("button", { name: "完成目前程序" }).click();
-  await expect(page.getByRole("status")).toContainText("先完成四步驟");
-  await page.getByLabel("提名班長（任期：本次教學演練）").selectOption("安安");
-  await page.getByRole("button", { name: "確認提名" }).click();
-  await page.getByRole("button", { name: "我附議，完成討論" }).click();
+
+test("主題一：主席主持選舉四步驟，平票再表決", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await enter(page);
+  await pick(page, "選舉班級幹部", "主席");
+  // 步驟一：提名人選（常見狀況：好笑不是理由）
+  await expect(page.locator(".dialogue-box")).toContainText("因為他很好笑");
+  await choose(page, /請浩浩說說/);
+  await expect(page.locator(".impact-card")).toContainText("提名有了好理由");
+  await page.getByLabel("提名班長").selectOption("安安");
+  await page.getByRole("button", { name: /確認提名/ }).click();
+  // 步驟二：徵求附議，進行討論（起鬨）
+  await choose(page, /有沒有人附議/);
+  await choose(page, /請大家安靜/);
+  await page.getByRole("button", { name: /徵求附議/ }).click();
+  await page.getByRole("button", { name: /完成討論/ }).click();
+  // 步驟三：舉手表決 → 平票
   await page.getByLabel("我的舉手支持").selectOption("阿哲");
-  await page.getByRole("button", { name: "舉手支持", exact: true }).click();
-  await page.getByRole("button", { name: "宣布選舉結果" }).click();
-  await page.getByLabel("我發現的問題").fill("閱讀角聲音互相干擾");
-  await page.getByLabel("我的提案").fill("分區使用");
-  await page.getByLabel("我的理由").fill("讓大家的需要都有被照顧");
-  for (let i = 0; i < 3; i++)
-    await page.getByRole("button", { name: "完成目前程序" }).click();
-  await page.getByRole("button", { name: "進行教材示範表決" }).click();
-  await expect(page.getByRole("status")).toContainText("三種意見都聽完");
-  await page.getByRole("button", { name: "徵求附議", exact: true }).click();
-  for (const name of ["小米", "浩浩", "阿哲"]) {
-    await page
-      .getByRole("button", { name: new RegExp(name + ".*舉手申請") })
-      .click();
-    await page.getByRole("button", { name: "主席同意下一位發言" }).click();
+  await page.getByRole("button", { name: /舉手表決/ }).click();
+  await expect(page.locator(".dialogue-box")).toContainText("平票");
+  await page.screenshot({ path: "test-results/03-election-tie.png" });
+  await choose(page, /再說一次服務計畫/);
+  await choose(page, /只能舉手一次/);
+  await page.getByRole("button", { name: /再表決一次/ }).click();
+  // 步驟四：宣布結果
+  await choose(page, /謝謝兩位候選人/);
+  await page.getByRole("button", { name: /宣布結果/ }).click();
+  await expect(page.getByRole("dialog", { name: "選舉完成！" })).toBeVisible();
+  await page.screenshot({ path: "test-results/04-election-done.png" });
+  await page.locator(".completion-card").getByRole("button", { name: "觀察決定的影響" }).click();
+  await expect(page.locator(".ending-card")).toContainText("公平的選舉主持人");
+  await expect(page.locator(".week-strip button")).toHaveCount(5);
+  await page.screenshot({ path: "test-results/05-election-impact.png" });
+});
+
+test("主題一：不好的選擇會帶來不同結局", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await enter(page);
+  await pick(page, "選舉班級幹部", "學生");
+  await choose(page, /開玩笑提名/);
+  await expect(page.locator(".impact-card")).toContainText("尷尬");
+  await page.getByLabel("提名班長").selectOption("阿哲");
+  await page.getByRole("button", { name: /確認提名/ }).click();
+  await choose(page, /一起拍桌子/);
+  await page.getByRole("button", { name: /徵求附議/ }).click();
+  await choose(page, /說得很有自信/);
+  await page.getByRole("button", { name: /完成討論/ }).click();
+  await page.getByLabel("我的舉手支持").selectOption("阿哲");
+  await page.getByRole("button", { name: /舉手表決/ }).click();
+  await choose(page, /我們贏/);
+  await choose(page, /跟好朋友一樣/);
+  await page.getByRole("button", { name: /再表決一次/ }).click();
+  await choose(page, /我才不要聽他的/);
+  await page.getByRole("button", { name: /宣布結果/ }).click();
+  await page.locator(".completion-card").getByRole("button", { name: "觀察決定的影響" }).click();
+  await expect(page.locator(".ending-card")).toContainText("重新演練");
+  await expect(page.locator(".ending-card")).toHaveClass(/level-low/);
+});
+
+test("主題二：學生角色完成六程序班會、論點卡、少數意見與影響", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await enter(page);
+  await pick(page, "閱讀角", "學生");
+  await page.getByRole("button", { name: "使用預設（班長安安）" }).click();
+  await page.getByRole("textbox", { name: "我發現的問題" }).fill("閱讀角聲音互相干擾");
+  await page.getByRole("textbox", { name: "我的提案" }).fill("分成安靜區和討論區");
+  await page.getByRole("textbox", { name: "我的理由" }).fill("兩種需要都能照顧到");
+  await page.getByRole("button", { name: /帶著提案去開班會/ }).click();
+  // 不能跳步
+  await page.getByRole("button", { name: "4 提案討論" }).click();
+  await expect(page.getByRole("status")).toContainText("請依序");
+  await choose(page, /下課再聊/);
+  await page.getByRole("button", { name: "完成目前程序" }).click();
+  await choose(page, /專心聽議題/);
+  await page.getByRole("button", { name: "完成目前程序" }).click();
+  await choose(page, /先聽股長說完/);
+  await page.getByRole("button", { name: "完成目前程序" }).click();
+  // 提案討論
+  await page.getByRole("button", { name: "徵求附議" }).click();
+  await choose(page, /再自己決定/);
+  await page.getByRole("button", { name: /小米.*舉手申請/ }).click();
+  await page.getByRole("button", { name: /主席請下一位發言/ }).click();
+  await choose(page, /舉手，等主席同意/);
+  await page.getByRole("button", { name: "我聽完了" }).click();
+  await choose(page, /等臨時動議再提/);
+  for (const n of ["浩浩", "阿哲"]) {
+    await page.getByRole("button", { name: new RegExp(`${n}.*舉手申請`) }).click();
+    await page.getByRole("button", { name: /主席請下一位發言/ }).click();
     await page.getByRole("button", { name: "我聽完了" }).click();
   }
-  await page.getByRole("button", { name: "進行教材示範表決" }).click();
+  await choose(page, /我支持分區/);
+  await expect(page.locator(".arg-card")).toHaveCount(4);
+  await page.getByRole("group", { name: "方案A的影響預測" }).getByRole("button", { name: "想討論的同學" }).click();
+  await page.getByRole("group", { name: "方案B的影響預測" }).getByRole("button", { name: "想安靜看書的同學" }).click();
+  await page.getByRole("group", { name: "方案C的影響預測" }).getByRole("button", { name: "每天都想使用的同學" }).click();
+  await page.getByRole("button", { name: /進行教材示範表決/ }).click();
   await expect(page.getByText("18 票")).toBeVisible();
-  await page
-    .getByLabel("小米還擔心太吵，你會如何照顧少數？")
-    .fill("把討論桌放遠，一週後再次討論");
+  await page.getByRole("button", { name: /把討論區放遠一點/ }).click();
+  await page.getByRole("button", { name: /約定討論時小小聲/ }).click();
+  await page.screenshot({ path: "test-results/06-proposal-vote.png" });
   await page.getByRole("button", { name: "完成目前程序" }).click();
-  await page
-    .getByLabel("臨時動議紀錄（沒有可填無）")
-    .fill("下週再檢查歸還書籍情況");
+  await choose(page, /借書忘了還/);
+  await page.getByRole("textbox", { name: "臨時動議紀錄（沒有可填無）" }).fill("借書忘了還，下次提案");
   await page.getByRole("button", { name: "完成目前程序" }).click();
+  await choose(page, /遵守決議/);
   await page.getByRole("button", { name: "宣布散會並儲存決議" }).click();
-  await expect(
-    page.getByRole("button", { name: "✓ 班會已完成" }),
-  ).toBeDisabled();
-  await expect(page.locator("pre")).toContainText("下週再檢查歸還書籍情況");
-  await page.screenshot({ path: "test-results/meeting.png", fullPage: true });
-});
-test("三入口、獨立服務與重新整理恢復", async ({ page }) => {
-  await page.goto("/");
-  await expect(
-    page.getByRole("button", { name: /閱讀角改造計畫/ }),
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: /班會大挑戰/ })).toBeVisible();
-  await page.getByRole("button", { name: /校園服務特攻隊/ }).click();
-  await page
-    .getByRole("button", { name: "紙類回收", exact: true })
-    .first()
-    .click();
-  await page.getByRole("button", { name: "塑膠回收", exact: true }).click();
-  await page
-    .getByRole("button", { name: "通知老師並遠離", exact: true })
-    .click();
-  await page.getByRole("button", { name: "完成本站服務" }).click();
-  await page
-    .getByRole("button", { name: "😊 笑臉", exact: true })
-    .first()
-    .click();
-  await page.getByLabel("星期一，我發現").fill("大家有一起整理");
+  await expect(page.getByRole("dialog", { name: "班會完成！" })).toBeVisible();
+  await page.locator(".completion-card").getByRole("button", { name: "觀察決定的影響" }).click();
+  await expect(page.locator(".ending-card")).toHaveClass(/level-high/);
+  await page.screenshot({ path: "test-results/07-proposal-impact.png" });
   await page.reload();
-  await expect(page.getByLabel("星期一，我發現")).toHaveValue("大家有一起整理");
-  await page.getByRole("button", { name: "返回活動地圖" }).click();
-  await expect(page.getByText("已完成 1 / 3 個活動")).toBeVisible();
+  await expect(page.locator(".ending-card")).toBeVisible();
 });
-test("家具點選替代、程序跳步提示與平板寬度", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: /閱讀角改造計畫/ }).click();
-  await page.getByRole("button", { name: "討論桌椅", exact: true }).click();
-  await page.getByRole("button", { name: "放置家具於第8欄第1排" }).click();
-  await page.reload();
-  await expect(
-    page.getByRole("button", { name: "選取討論桌椅" }),
-  ).toHaveAttribute("style", /left: 88/);
-  await page.getByRole("button", { name: "返回活動地圖" }).click();
-  await page.getByRole("button", { name: /班會大挑戰/ }).click();
-  await page.getByRole("button", { name: "4. 提案討論" }).click();
-  await expect(page.getByRole("status")).toContainText("請依序");
-  for (const width of [1024, 1280]) {
-    await page.setViewportSize({ width, height: 800 });
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= window.innerWidth,
-      ),
-    ).toBe(true);
+
+test("班會小百科有平票處理，平面模式與兩種平板比例", async ({ page }) => {
+  await enter(page);
+  await page.getByRole("button", { name: "班會小百科" }).click();
+  await page.getByRole("button", { name: /如果平票怎麼辦/ }).click();
+  await expect(page.getByText("再討論、再表決")).toBeVisible();
+  await page.screenshot({ path: "test-results/08-handbook.png" });
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "設定" }).click();
+  await page.getByRole("button", { name: "平面" }).click();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "開始探索" }).click();
+  await expect(page.locator("svg.classroom")).toBeVisible();
+  for (const [width, height] of [
+    [1024, 768],
+    [1280, 800],
+  ]) {
+    await page.setViewportSize({ width, height });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const foot = await page.locator(".mission-foot").boundingBox();
+    expect(foot!.y + foot!.height).toBeLessThanOrEqual(height + 1);
   }
 });

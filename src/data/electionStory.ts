@@ -1,0 +1,330 @@
+import type { Decision } from "./meetingStory";
+
+/**
+ * 主題一：選舉班級幹部（課本 p.5–6 選舉流程）。
+ * 步驟一：提名人選　步驟二：徵求附議，進行討論　步驟三：舉手表決　步驟四：宣布結果
+ * 每個角色在各步驟都有常見狀況與選擇；台詞與狀況為遊戲延伸內容，流程依課本。
+ * step 對應 election.step（0–3）。trigger "tie"＝第一次計票平票時出現。
+ */
+export const ELECTION_DECISIONS: Decision[] = [
+  /* ===================== 主席：主持選舉 ===================== */
+  {
+    id: "el-c-nominate",
+    topic: "election",
+    role: "chair",
+    step: 0,
+    speaker: "hao",
+    prompt: "我提名阿哲！因為他很好笑，哈哈！",
+    question: "提名的理由好像不太對，主席要怎麼做？",
+    options: [
+      { id: "why", label: "請浩浩說說：阿哲哪裡適合為大家服務？", good: true, effect: { fair: 10 }, result: "浩浩想了想：「阿哲做事很仔細，會記下大家的需要。」提名有了好理由。", tags: ["reason"] },
+      { id: "write", label: "不用問，直接寫上黑板", good: false, effect: { fair: -5 }, result: "大家不知道為什麼要選他。提名要說出適合的理由，例如負責、熱心服務。" },
+    ],
+  },
+  {
+    id: "el-c-second",
+    topic: "election",
+    role: "chair",
+    step: 1,
+    speaker: "anan",
+    prompt: "黑板上有兩位人選了，接下來呢？",
+    question: "主席要怎麼進行「徵求附議」？",
+    options: [
+      { id: "ask", label: "問大家：「有沒有人附議？」等有人舉手贊成", good: true, effect: { order: 10 }, result: "有同學舉手附議，兩位人選都成為候選人。" },
+      { id: "skip", label: "不用附議，直接投票", good: false, effect: { order: -10, fair: -5 }, result: "沒有附議，就不知道有沒有人贊成這個提名。附議表示一個人以上贊成。" },
+    ],
+  },
+  {
+    id: "el-c-noise",
+    topic: "election",
+    role: "chair",
+    step: 1,
+    speaker: "hao",
+    prompt: "（有同學開始拍桌子起鬨：「選他！選他！」）",
+    question: "教室變吵了，主席要怎麼辦？",
+    options: [
+      { id: "calm", label: "請大家安靜，請兩位候選人輪流說說會怎麼服務", good: true, effect: { order: 15, voice: 5 }, result: "教室安靜下來，大家聽到兩位候選人的想法。", tags: ["reason"] },
+      { id: "laugh", label: "跟著大家一起笑", good: false, effect: { order: -15 }, result: "越來越吵，候選人說的話沒有人聽到。選舉變成在比誰比較好玩。" },
+    ],
+  },
+  {
+    id: "el-c-tie",
+    topic: "election",
+    role: "chair",
+    step: 2,
+    trigger: "tie",
+    speaker: "zhe",
+    prompt: "（記錄數完票）兩位候選人一樣，都是 14 票！平票了！",
+    question: "平票時，主席要怎麼處理？",
+    options: [
+      { id: "revote", label: "請兩位候選人再說一次服務計畫，然後再表決一次", good: true, effect: { fair: 15, order: 5 }, result: "大家再聽一次想法，第二次表決分出結果。平票時可以再討論、再表決。" },
+      { id: "decide", label: "主席自己決定選誰就好", good: false, effect: { fair: -20 }, result: "主席一個人決定，其他同學覺得自己的票沒有用。選舉要由大家決定。" },
+      { id: "rps", label: "直接猜拳決定", good: false, effect: { fair: -5, order: -5 }, result: "猜拳很快，但沒有聽到大家的想法。可以先再討論、再表決，真的還是一樣時，再全班約定公平的方法（例如抽籤）。" },
+    ],
+  },
+  {
+    id: "el-c-count",
+    topic: "election",
+    role: "chair",
+    step: 2,
+    speaker: "mi",
+    prompt: "（第二次表決時，小米發現）主席，有人兩次都舉手！",
+    question: "計票時發現有人重複舉手，怎麼辦？",
+    options: [
+      { id: "recount", label: "提醒「每個人只能舉手一次」，再數一次", good: true, effect: { fair: 15 }, result: "重新數清楚，票數正確，結果大家都相信。" },
+      { id: "ignore", label: "差不多就好，不用重數", good: false, effect: { fair: -15 }, result: "票數不正確，結果可能不公平，有同學開始懷疑。" },
+    ],
+  },
+  {
+    id: "el-c-announce",
+    topic: "election",
+    role: "chair",
+    step: 3,
+    speaker: "zhe",
+    prompt: "（第二次表決結果出來了）",
+    question: "主席要怎麼宣布結果？",
+    options: [
+      { id: "thank", label: "宣布結果，謝謝兩位候選人，請大家一起配合新班長", good: true, effect: { fair: 5, voice: 5, feel: { zhe: "happy", anan: "happy" } }, result: "大家為兩位候選人鼓掌。沒當選的同學也覺得被尊重。", tags: ["kind", "cooperate"] },
+      { id: "short", label: "只說：「某某贏了。」就結束", good: false, effect: { voice: -5, feel: { zhe: "worried" } }, result: "沒當選的同學有點難過。也要謝謝每位願意服務的人。" },
+    ],
+  },
+
+  /* ===================== 司儀：宣布選舉程序 ===================== */
+  {
+    id: "el-e-start",
+    topic: "election",
+    role: "emcee",
+    step: 0,
+    speaker: "anan",
+    prompt: "（主席）司儀，請宣布選舉開始。",
+    question: "你要怎麼宣布第一個步驟？",
+    options: [
+      { id: "clear", label: "宣布：「步驟一，提名人選。提名時請說出理由。」", good: true, effect: { order: 10 }, result: "大家知道提名要說理由，紛紛舉手認真提名。", tags: ["reason"] },
+      { id: "messy", label: "宣布：「大家快說要選誰！」", good: false, effect: { order: -10 }, result: "大家同時喊名字，主席聽不清楚。" },
+    ],
+  },
+  {
+    id: "el-e-second",
+    topic: "election",
+    role: "emcee",
+    step: 1,
+    speaker: "anan",
+    prompt: "（主席）有人附議了，接下來要做什麼？",
+    question: "你要宣布什麼？",
+    options: [
+      { id: "talk", label: "宣布：「請候選人輪流說說，自己會怎麼服務。」", good: true, effect: { voice: 10 }, result: "兩位候選人說出計畫，大家更知道要怎麼選。", tags: ["reason"] },
+      { id: "vote", label: "宣布：「不用說了，直接投票。」", good: false, effect: { voice: -10 }, result: "沒有討論，大家只能憑感覺投票。" },
+    ],
+  },
+  {
+    id: "el-e-tie",
+    topic: "election",
+    role: "emcee",
+    step: 2,
+    trigger: "tie",
+    speaker: "zhe",
+    prompt: "兩位都是 14 票，平票了！大家開始吵：「怎麼辦？」",
+    question: "司儀可以怎麼協助？",
+    options: [
+      { id: "calm", label: "請大家安靜，宣布：「平票，請候選人再說明一次，再表決。」", good: true, effect: { order: 15, fair: 10 }, result: "大家安靜下來，依程序再表決一次。" },
+      { id: "shout", label: "大聲說：「平手啦！隨便選一個！」", good: false, effect: { order: -10, fair: -10 }, result: "教室更亂了，大家不知道接下來要做什麼。" },
+    ],
+  },
+  {
+    id: "el-e-vote",
+    topic: "election",
+    role: "emcee",
+    step: 2,
+    speaker: "anan",
+    prompt: "（主席）要開始舉手表決了。",
+    question: "你要怎麼宣布表決？",
+    options: [
+      { id: "one", label: "一位一位唸：「贊成安安的請舉手」，數完再唸下一位", good: true, effect: { order: 10 }, result: "大家清楚知道現在投給誰，票數很好數。" },
+      { id: "both", label: "兩個名字一起唸，大家自己舉手", good: false, effect: { order: -10, fair: -5 }, result: "大家搞不清楚現在是投給誰，票數亂掉了。" },
+    ],
+  },
+  {
+    id: "el-e-result",
+    topic: "election",
+    role: "emcee",
+    step: 3,
+    speaker: "zhe",
+    prompt: "（結果出來了）",
+    question: "宣布結果後，你還可以說什麼？",
+    options: [
+      { id: "clap", label: "「請大家為兩位候選人鼓掌，謝謝他們願意服務！」", good: true, effect: { fair: 5, feel: { zhe: "happy" } }, result: "全班鼓掌，兩位候選人都笑了。", tags: ["kind", "cooperate"] },
+      { id: "tease", label: "「阿哲輸了！哈哈！」", good: false, effect: { fair: -10, feel: { zhe: "worried" } }, result: "阿哲覺得很丟臉。沒有當選不是輸，每個人都有服務的機會。" },
+    ],
+  },
+
+  /* ===================== 記錄：寫黑板、記票數 ===================== */
+  {
+    id: "el-r-names",
+    topic: "election",
+    role: "recorder",
+    step: 0,
+    speaker: "hao",
+    prompt: "（好朋友浩浩小聲說）你只要把我提名的人寫大一點就好！",
+    question: "記錄要怎麼寫黑板？",
+    options: [
+      { id: "fair", label: "每位被提名的人，都用一樣大小寫上名字和理由", good: true, effect: { fair: 15 }, result: "黑板上寫得清清楚楚，大家看得到每位人選。", tags: ["reason"] },
+      { id: "buddy", label: "把好朋友提名的人寫大一點", good: false, effect: { fair: -15 }, result: "另一位人選的名字很小，對他不公平。" },
+    ],
+  },
+  {
+    id: "el-r-second",
+    topic: "election",
+    role: "recorder",
+    step: 1,
+    speaker: "anan",
+    prompt: "（主席）有同學附議了喔。",
+    question: "附議和討論的內容，要怎麼記？",
+    options: [
+      { id: "note", label: "記下有人附議，也寫下兩位候選人的服務計畫", good: true, effect: { voice: 10 }, result: "大家可以看著黑板上的計畫比較。", tags: ["reason"] },
+      { id: "skip", label: "這些不重要，不用記", good: false, effect: { voice: -10 }, result: "大家忘了候選人說了什麼。" },
+    ],
+  },
+  {
+    id: "el-r-tie",
+    topic: "election",
+    role: "recorder",
+    step: 2,
+    trigger: "tie",
+    speaker: "anan",
+    prompt: "你數完票：兩位都是 14 票，平票！",
+    question: "記錄要怎麼做？",
+    options: [
+      { id: "report", label: "清楚告訴主席平票，並在黑板寫下「第一次表決 14：14」", good: true, effect: { fair: 15 }, result: "主席依程序請大家再表決一次。黑板上留下清楚的紀錄。" },
+      { id: "change", label: "偷偷改一票，讓結果分出來", good: false, effect: { fair: -25 }, result: "改票是不誠實的，會讓選舉不公平。平票就照實記錄，再由大家決定怎麼處理。" },
+    ],
+  },
+  {
+    id: "el-r-count",
+    topic: "election",
+    role: "recorder",
+    step: 2,
+    speaker: "anan",
+    prompt: "（主席）第二次表決，請記錄計票。",
+    question: "你要怎麼記票數？",
+    options: [
+      { id: "zheng", label: "一邊數，一邊在黑板畫「正」字", good: true, effect: { fair: 10 }, result: "每一票都看得到，大家一起確認票數。" },
+      { id: "guess", label: "看一看，猜一個差不多的數字", good: false, effect: { fair: -15 }, result: "票數不正確，有同學說：「我覺得不只這樣！」" },
+    ],
+  },
+  {
+    id: "el-r-result",
+    topic: "election",
+    role: "recorder",
+    step: 3,
+    speaker: "teacher",
+    prompt: "選舉結束了，要記在班級紀錄本裡。",
+    question: "記錄要寫哪些內容？",
+    options: [
+      { id: "full", label: "寫下當選人、票數和任期（這次的服務時間）", good: true, effect: { order: 5, fair: 5 }, result: "大家知道班長要服務多久，任期結束後，其他人也有機會。", tags: ["cooperate"] },
+      { id: "name", label: "只寫當選人的名字", good: false, effect: { fair: -5 }, result: "沒寫任期，大家不知道什麼時候可以換人服務。" },
+    ],
+  },
+
+  /* ===================== 學生：提名、討論、投票、接受結果 ===================== */
+  {
+    id: "el-s-nominate",
+    topic: "election",
+    role: "student",
+    step: 0,
+    speaker: "anan",
+    prompt: "（主席）請大家提名班長人選，記得說理由。",
+    question: "你會怎麼提名？",
+    options: [
+      { id: "reason", label: "提名做事負責、願意服務的同學，並說出理由", good: true, effect: { fair: 10 }, result: "你的理由讓大家知道他為什麼適合。", tags: ["reason"] },
+      { id: "friend", label: "提名最好的朋友，因為他很好玩", good: false, effect: { fair: -10 }, result: "「好玩」不是當班長的理由。要想想他能不能為大家服務。" },
+      { id: "joke", label: "開玩笑提名一個不想當的同學", good: false, effect: { fair: -10, order: -10, feel: { mi: "worried" } }, result: "被開玩笑提名的同學很尷尬。提名要認真，也要尊重對方的意願。" },
+    ],
+  },
+  {
+    id: "el-s-noise",
+    topic: "election",
+    role: "student",
+    step: 1,
+    speaker: "hao",
+    prompt: "（旁邊同學開始拍桌子起鬨：「選他！選他！」）",
+    question: "你會怎麼做？",
+    options: [
+      { id: "listen", label: "不跟著鬧，安靜聽候選人說話", good: true, effect: { order: 10 }, result: "你聽清楚兩位候選人的想法，可以好好比較。" },
+      { id: "join", label: "一起拍桌子起鬨", good: false, effect: { order: -15 }, result: "教室很吵，主席要花很多時間維持秩序。" },
+    ],
+  },
+  {
+    id: "el-s-compare",
+    topic: "election",
+    role: "student",
+    step: 1,
+    speaker: "teacher",
+    prompt: "（候選人比一比）甲說：「選我就對了！」乙說：「我會每天檢查值日表。」",
+    question: "你覺得誰說得比較好？",
+    options: [
+      { id: "b", label: "乙，因為他說出了要怎麼做", good: true, effect: { voice: 5 }, result: "說出具體做法，大家比較能判斷他能不能做好。", tags: ["reason"] },
+      { id: "a", label: "甲，因為他說得很有自信", good: false, effect: { voice: -5 }, result: "「選我就對了」沒有說出會怎麼做，比較難判斷他能不能做好。" },
+    ],
+  },
+  {
+    id: "el-s-tie",
+    topic: "election",
+    role: "student",
+    step: 2,
+    trigger: "tie",
+    speaker: "hao",
+    prompt: "平票了！浩浩大喊：「我們這邊比較大聲，所以我們贏！」",
+    question: "你覺得應該怎麼做？",
+    options: [
+      { id: "rule", label: "說：「平票要聽主席安排，再表決一次。」", good: true, effect: { order: 10, fair: 10 }, result: "大家冷靜下來，依程序再表決。" },
+      { id: "shout", label: "跟著大喊：「我們贏！我們贏！」", good: false, effect: { order: -15, fair: -10 }, result: "兩邊吵起來了。比大聲不能決定結果。" },
+    ],
+  },
+  {
+    id: "el-s-vote",
+    topic: "election",
+    role: "student",
+    step: 2,
+    speaker: "hao",
+    prompt: "（再表決前，浩浩小聲說）你要跟我一起舉手喔！",
+    question: "舉手表決時，你會……",
+    options: [
+      { id: "own", label: "依照自己的判斷，選比較適合服務的人", good: true, effect: { fair: 10 }, result: "你用自己的想法投票，這才是選舉的意義。" },
+      { id: "follow", label: "跟好朋友一樣就好", good: false, effect: { fair: -10 }, result: "如果大家都看好朋友投票，就選不出最適合服務的人。" },
+    ],
+  },
+  {
+    id: "el-s-result",
+    topic: "election",
+    role: "student",
+    step: 3,
+    speaker: "teacher",
+    prompt: "（如果你支持的人沒有當選……）",
+    question: "你會怎麼做？",
+    options: [
+      { id: "accept", label: "恭喜新班長，以後願意配合他", good: true, effect: { order: 5, fair: 5 }, result: "新班長很感謝大家，班級工作進行得很順利。", tags: ["cooperate", "kind"] },
+      { id: "refuse", label: "說：「不公平，我才不要聽他的！」", good: false, effect: { order: -10, fair: -10, feel: { anan: "worried" } }, result: "選舉結果很難讓每個人都滿意，但要尊重大家的決定。下次選舉，你也可以提名或參選。" },
+    ],
+  },
+];
+
+/** 班會小百科：正式流程與常見狀況（標示課本或遊戲延伸） */
+export const HANDBOOK: { q: string; a: string; src: "課本" | "遊戲延伸" }[] = [
+  { q: "選舉班級幹部有哪些步驟？", a: "步驟一：提名人選。步驟二：徵求附議，進行討論。步驟三：舉手表決。步驟四：宣布結果。", src: "課本" },
+  { q: "什麼是附議？", a: "附議：表示一個人以上贊成這個提議，以舉手或口頭表達。", src: "課本" },
+  { q: "什麼是任期？", a: "任期：指擔任某項職務工作的時間期限。擔任幹部的時間由全班討論決定。", src: "課本" },
+  { q: "班會有哪些程序？", a: "1. 班會開始　2. 主席報告　3. 班長及各股股長報告　4. 提案討論　5. 臨時動議　6. 散會（會後請導師指導）。", src: "課本" },
+  { q: "主席、司儀、記錄做什麼？", a: "主席：負責主持班會進行。司儀：協助宣布班會程序。記錄：負責記錄會議的內容。", src: "課本" },
+  { q: "想發言時要怎麼做？", a: "發言時要先舉手，並經主席同意才能發言；他人發言時，要專心聆聽，尊重同學的意見。", src: "課本" },
+  { q: "什麼時候可以表決？", a: "提案應在會議前提出，並在會議中充分討論。當討論意見已充分表達時，主席可以請大家進行表決。", src: "課本" },
+  { q: "表決有哪些方式？", a: "常見的表決方式有：舉手表決、起立表決、投票表決。", src: "課本" },
+  { q: "表決後少數人不滿意怎麼辦？", a: "要確實遵守表決通過的事項，並尊重少數人的意見；也可以問問少數同學有什麼困難，一起想辦法。", src: "課本" },
+  { q: "如果平票怎麼辦？", a: "可以請候選人或提案人再說明一次，大家再討論、再表決。如果還是平票，由全班事先約定公平的方法（例如抽籤），並請老師協助。不由主席一個人決定。", src: "遊戲延伸" },
+  { q: "沒有人附議怎麼辦？", a: "沒有人附議，表示目前沒有其他人贊成，這個提名或提案就先不討論。可以修改想法，下次再提出。", src: "遊戲延伸" },
+  { q: "有人重複舉手或沒舉手怎麼辦？", a: "提醒「每個人只能舉手一次」，必要時重新再數一次，讓票數正確。", src: "遊戲延伸" },
+  { q: "有人插話、起鬨怎麼辦？", a: "主席或司儀可以有禮貌地提醒：先舉手，等正在發言的同學說完，再請下一位。", src: "遊戲延伸" },
+  { q: "討論離題了怎麼辦？", a: "主席提醒大家回到今天的議題；新的問題可以在「臨時動議」提出，或下次班會再提案。", src: "遊戲延伸" },
+  { q: "主席可以說自己的意見嗎？", a: "主席負責主持，要公平讓每個人發言。主席最好不要一開始就說出自己的答案，以免其他人不敢表達。", src: "遊戲延伸" },
+  { q: "什麼是臨時動議？", a: "會議中臨時提出、事前沒有列入提案的新問題。可以簡單討論，重要的事可以下次班會再正式提案。", src: "遊戲延伸" },
+  { q: "沒有當選怎麼辦？", a: "沒有當選不是輸。班上同學都有機會擔任幹部；也可以用其他方式為大家服務。", src: "課本" },
+];

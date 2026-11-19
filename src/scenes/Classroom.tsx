@@ -45,6 +45,8 @@ export type CastMember = {
   book?: boolean;
   dim?: boolean;
   className?: string;
+  /** 角色名牌（3D 場景顯示） */
+  nameTag?: string;
   onActivate?: () => void;
 };
 
@@ -68,6 +70,8 @@ export interface ClassroomProps {
   messy?: boolean;
   ariaLabel: string;
   slice?: boolean;
+  /** 學生輸入的班級名稱（布告欄等處顯示） */
+  classLabel?: string;
   /** 探索模式：點家具或布告欄 */
   onObject?: (id: FurnitureId | "board" | "blackboard") => void;
   objectMarkers?: Partial<Record<FurnitureId | "board", Marker>>;
@@ -124,6 +128,7 @@ export function Classroom(props: ClassroomProps) {
     proposalCard,
     voteBoard,
     effects = {},
+    classLabel = "我們班",
   } = props;
   const { prefs } = usePrefs();
   const target = typeof props.camera === "string" ? CAMERAS[props.camera] : props.camera;
@@ -444,7 +449,7 @@ export function Classroom(props: ClassroomProps) {
         <polygon points={pts([[6.8, 0, 80], [8.3, 0, 80], [8.3, 0, 166], [6.8, 0, 166]])} fill="#fffaf0" stroke="#c9b48f" strokeWidth={1} />
         <g transform={rightWallMatrix(6.85, 163)}>
           <text x={6} y={13} fontSize={11.5} fill="#c9665a" fontWeight={800}>
-            三年二班 班級公約
+            {classLabel} 班級公約
           </text>
           {["準時到校學習", "配合班級活動", "按時繳交作業", "遵守班級秩序", "維護環境清潔"].map((t, i) => (
             <text key={t} x={8} y={28 + i * 11.5} fontSize={8.6} fill="#2f3f35">

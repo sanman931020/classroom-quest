@@ -26,7 +26,7 @@ export type DecisionOption = {
   /** 選擇後看到的影響說明 */
   result: string;
   /** 影響後續模擬的標記：books＝書本問題有被提出／記錄；yun＝小芸的意見被聽見 */
-  tags?: ("books" | "yun" | "me")[];
+  tags?: ("books" | "yun" | "me" | "reason" | "cooperate" | "kind")[];
 };
 /** 學生可扮演的班會角色（課本 p.7：主席、司儀、記錄） */
 export type MeetingRole = "chair" | "emcee" | "recorder" | "student";
@@ -36,13 +36,20 @@ export const ROLES: { id: MeetingRole; name: string; duty: string; tip: string }
   { id: "recorder", name: "記錄", duty: "負責記錄會議的內容。", tip: "清楚記下每個人的意見、表決結果和少數意見。" },
   { id: "student", name: "學生", duty: "參加班會，提出自己的看法。", tip: "發言前先舉手，專心聆聽，對事不對人，也要遵守表決結果。" },
 ];
+/** 討論主題 */
+export type TopicId = "election" | "proposal";
+export const TOPICS: { id: TopicId; title: string; sub: string; pages: string; steps: string[] }[] = [
+  { id: "election", title: "選舉班級幹部", sub: "選出願意為大家服務的班長", pages: "課本 p.5–6", steps: ["提名人選", "徵求附議，進行討論", "舉手表決", "宣布結果"] },
+  { id: "proposal", title: "班會提案：閱讀角怎麼用？", sub: "討論並決定班級的事情", pages: "課本 p.7–12", steps: ["班會開始", "主席報告", "班長及各股股長報告", "提案討論", "臨時動議", "散會"] },
+];
 export type Decision = {
   id: string;
+  topic: TopicId;
   role: MeetingRole;
   /** 對應正式六步驟（0–5） */
   step: number;
   /** 需要在討論中特定時機才出現的事件 */
-  trigger?: "seconded" | "interrupt" | "offtopic" | "quiet";
+  trigger?: "seconded" | "interrupt" | "offtopic" | "quiet" | "tie";
   speaker: CharacterId;
   /** 情境台詞 */
   prompt: string;
@@ -54,6 +61,7 @@ export const DECISIONS: Decision[] = [
   /* ===================== 主席：主持討論、維持秩序、公平發言 ===================== */
   {
     id: "open",
+    topic: "proposal",
     role: "chair",
     step: 0,
     speaker: "anan",
@@ -66,6 +74,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "report",
+    topic: "proposal",
     role: "chair",
     step: 1,
     speaker: "teacher",
@@ -78,6 +87,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "officers",
+    topic: "proposal",
     role: "chair",
     step: 2,
     speaker: "zhe",
@@ -90,6 +100,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "interrupt",
+    topic: "proposal",
     role: "chair",
     step: 3,
     trigger: "interrupt",
@@ -103,6 +114,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "quiet",
+    topic: "proposal",
     role: "chair",
     step: 3,
     trigger: "quiet",
@@ -116,6 +128,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "motion",
+    topic: "proposal",
     role: "chair",
     step: 4,
     speaker: "hao",
@@ -130,6 +143,7 @@ export const DECISIONS: Decision[] = [
   /* ===================== 司儀：依序宣布程序、提醒規則 ===================== */
   {
     id: "e-open",
+    topic: "proposal",
     role: "emcee",
     step: 0,
     speaker: "anan",
@@ -142,6 +156,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "e-next1",
+    topic: "proposal",
     role: "emcee",
     step: 1,
     speaker: "anan",
@@ -154,6 +169,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "e-next2",
+    topic: "proposal",
     role: "emcee",
     step: 2,
     speaker: "zhe",
@@ -166,6 +182,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "e-interrupt",
+    topic: "proposal",
     role: "emcee",
     step: 3,
     trigger: "interrupt",
@@ -179,6 +196,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "e-quiet",
+    topic: "proposal",
     role: "emcee",
     step: 3,
     trigger: "quiet",
@@ -192,6 +210,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "e-motion",
+    topic: "proposal",
     role: "emcee",
     step: 4,
     speaker: "hao",
@@ -204,6 +223,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "e-close",
+    topic: "proposal",
     role: "emcee",
     step: 5,
     speaker: "teacher",
@@ -218,6 +238,7 @@ export const DECISIONS: Decision[] = [
   /* ===================== 記錄：清楚、完整、公正地記下意見 ===================== */
   {
     id: "r-open",
+    topic: "proposal",
     role: "recorder",
     step: 0,
     speaker: "anan",
@@ -230,6 +251,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "r-officers",
+    topic: "proposal",
     role: "recorder",
     step: 2,
     speaker: "zhe",
@@ -242,6 +264,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "r-interrupt",
+    topic: "proposal",
     role: "recorder",
     step: 3,
     trigger: "interrupt",
@@ -255,6 +278,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "r-quiet",
+    topic: "proposal",
     role: "recorder",
     step: 3,
     trigger: "quiet",
@@ -268,6 +292,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "r-minority",
+    topic: "proposal",
     role: "recorder",
     step: 4,
     speaker: "mi",
@@ -280,6 +305,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "r-close",
+    topic: "proposal",
     role: "recorder",
     step: 5,
     speaker: "teacher",
@@ -293,6 +319,7 @@ export const DECISIONS: Decision[] = [
   /* ===================== 學生：參與、表達、聆聽、遵守 ===================== */
   {
     id: "s-open",
+    topic: "proposal",
     role: "student",
     step: 0,
     speaker: "hao",
@@ -305,6 +332,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "s-listen",
+    topic: "proposal",
     role: "student",
     step: 1,
     speaker: "anan",
@@ -317,6 +345,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "s-officers",
+    topic: "proposal",
     role: "student",
     step: 2,
     speaker: "zhe",
@@ -329,6 +358,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "s-interrupt",
+    topic: "proposal",
     role: "student",
     step: 3,
     trigger: "interrupt",
@@ -342,6 +372,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "s-speak",
+    topic: "proposal",
     role: "student",
     step: 3,
     trigger: "quiet",
@@ -356,6 +387,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "s-motion",
+    topic: "proposal",
     role: "student",
     step: 4,
     speaker: "anan",
@@ -368,6 +400,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "s-accept",
+    topic: "proposal",
     role: "student",
     step: 5,
     speaker: "teacher",
@@ -381,6 +414,7 @@ export const DECISIONS: Decision[] = [
   /* ===== 常見狀況（討論中觸發）：偏心好朋友、離題、跟著好朋友舉手、寫不完、講不停 ===== */
   {
     id: "friend",
+    topic: "proposal",
     role: "chair",
     step: 3,
     trigger: "seconded",
@@ -394,6 +428,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "offtopic",
+    topic: "proposal",
     role: "chair",
     step: 3,
     trigger: "offtopic",
@@ -407,6 +442,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "e-seconded",
+    topic: "proposal",
     role: "emcee",
     step: 3,
     trigger: "seconded",
@@ -420,6 +456,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "e-long",
+    topic: "proposal",
     role: "emcee",
     step: 3,
     trigger: "offtopic",
@@ -433,6 +470,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "r-friend",
+    topic: "proposal",
     role: "recorder",
     step: 3,
     trigger: "seconded",
@@ -446,6 +484,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "r-fast",
+    topic: "proposal",
     role: "recorder",
     step: 3,
     trigger: "offtopic",
@@ -459,6 +498,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "s-friend",
+    topic: "proposal",
     role: "student",
     step: 3,
     trigger: "seconded",
@@ -472,6 +512,7 @@ export const DECISIONS: Decision[] = [
   },
   {
     id: "s-offtopic",
+    topic: "proposal",
     role: "student",
     step: 3,
     trigger: "offtopic",

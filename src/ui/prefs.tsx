@@ -11,6 +11,10 @@ export interface Prefs {
   volume: number; // 0–1
   motion: MotionPref;
   lowPower: boolean;
+  /** 場景模式：3D 或 2.5D 平面 */
+  view: "3d" | "2d";
+  /** 國字旁顯示注音（注音字型） */
+  zhuyin: boolean;
   hints: boolean;
   seen: Record<string, boolean>;
 }
@@ -20,6 +24,8 @@ const defaults: Prefs = {
   volume: 0.6,
   motion: "auto",
   lowPower: false,
+  view: "3d",
+  zhuyin: true,
   hints: true,
   seen: {},
 };
@@ -39,6 +45,8 @@ export function loadPrefs(): Prefs {
         ? (p.motion as MotionPref)
         : "auto",
       lowPower: !!p.lowPower,
+      view: p.view === "2d" ? "2d" : "3d",
+      zhuyin: typeof p.zhuyin === "boolean" ? p.zhuyin : true,
       hints: typeof p.hints === "boolean" ? p.hints : true,
       seen: p.seen && typeof p.seen === "object" ? p.seen : {},
     };
@@ -89,6 +97,7 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
     const root = document.documentElement;
     root.dataset.motion = prefs.motion;
     root.dataset.lowpower = prefs.lowPower ? "on" : "off";
+    root.dataset.zhuyin = prefs.zhuyin ? "on" : "off";
     sfx.configure(prefs.sound, prefs.volume);
   }, [prefs]);
   const reduced =
