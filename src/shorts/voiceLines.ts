@@ -2,9 +2,8 @@ import { paletteOf, type Look } from "../art/Character";
 
 /**
  * 短片人聲：每句台詞一個音檔 public/voice/shorts/<id>.mp3。
- * 角色聲音分配（Kokoro-82M 本機產生，Apache-2.0）：
- *   teacher 林老師 zf_xiaoxiao｜narrator 旁白 zf_xiaoni｜anan 安安 zf_xiaoyi｜mi 小米 zf_xiaobei
- *   hao 浩浩 zm_yunxia｜zhe 阿哲 zm_yunxi｜npc0 小宇 zm_yunjian｜chorus 大家 zm_yunyang｜其他同學依性別
+ * 人聲以 BreezyVoice（MediaTek Research，Apache-2.0，臺灣華語）本機產生（scripts/gen_voices_breezy.py）：
+ *   以臺灣女聲為基準，林老師原聲；旁白、安安、小米、浩浩、阿哲、小宇、大家各用不同升調與語速。
  * 之後若有真人錄音，用相同檔名覆蓋即可。
  */
 export type VoicePart = "teacher" | "narrator" | "anan" | "mi" | "hao" | "zhe" | "yu" | "chorus" | "girl" | "boy";
