@@ -13,12 +13,16 @@ import { usePrefs } from "../ui/prefs";
  * 鏡頭有預設視角與有限度的旋轉縮放，避免學生迷失方向。
  */
 type V3 = [number, number, number];
-const PRESETS: Record<string, { pos: V3; target: V3 }> = {
+/** zoom：視角縮放（負數＝拉近） */
+const PRESETS: Record<string, { pos: V3; target: V3; zoom?: number }> = {
   // 站在黑板旁邊（老師的位置）看向全班：坐著的同學面向黑板，所以看得到大家的臉
-  front: { pos: [2.1, 1.8, 8.5], target: [8.6, 0.8, 5.0] },
-  full: { pos: [2.1, 1.8, 8.5], target: [8.6, 0.8, 5.0] },
+  // 主席、司儀、記錄：站在黑板旁，正面往教室後方看（看得到全班的臉）
+  front: { pos: [2.7, 1.6, 7.8], target: [12.5, 0.8, 7.1] },
+  full: { pos: [2.7, 1.6, 7.8], target: [12.5, 0.8, 7.1] },
+  // 學生：坐在第三排靠走廊牆的座位，往前看得到黑板
+  seat: { pos: [9.05, 1.22, 9.05], target: [0, 1.5, 5.4], zoom: -19 },
   // 主選單：靠近後牆的班級公約，老師和同學聚在公約前（公約落在畫面右半，左半是選單卡片）
-  menu: { pos: [5.8, 2.2, 7.2], target: [8.9, 1.1, 0.9] },
+  menu: { pos: [6.5, 1.95, 5.8], target: [10.7, 0.85, 0.1] },
   corner: { pos: [4.4, 1.9, 6.6], target: [8.4, 1.0, 1.6] },
 };
 const DESKS: [number, number][] = [];
@@ -35,8 +39,10 @@ const seat3d = (gx: number, gy: number) => {
 const near = (a: number, b: number) => Math.abs(a - b) < 0.01;
 function remapSeat(x: number, z: number, pose?: string): [number, number, boolean] {
   const seatedPose = pose === "sit" || pose === "raise";
+  // 主席：站在講桌旁（不被講桌擋住），學生從座位看得到
+  if (near(x, 0.85) && near(z, 5.05)) return [1.25, 4.1, false];
   // 司儀：站在黑板另一側，避免太靠近鏡頭
-  if (near(x, 1.4) && near(z, 7.3)) return [1.5, 3.4, false];
+  if (near(x, 1.4) && near(z, 7.3)) return [1.5, 2.9, false];
   // 記錄桌
   if (near(x, 1.72) && near(z, 2.2)) {
     const [sx, sz] = seat3d(1.0, 1.95);
@@ -831,10 +837,11 @@ function Room({ positions, messy, mode, classLabel, board, proposalCard, voteBoa
         <Desk key={i} gx={gx} gy={gy} />
       ))}
       <group position={[1.58, 0, 5.05]}>
-        <mesh material={toon("#c99a6b")} position={[0, 0.48, 0]}>
-          <boxGeometry args={[0.55, 0.96, 0.9]} />
+        {/* 講桌比小朋友矮，主席站在旁邊看得清楚 */}
+        <mesh material={toon("#c99a6b")} position={[0, 0.4, 0]}>
+          <boxGeometry args={[0.55, 0.8, 0.9]} />
         </mesh>
-        <mesh material={toon("#d6b563")} position={[0.28, 0.5, 0]}>
+        <mesh material={toon("#d6b563")} position={[0.28, 0.42, 0]}>
           <boxGeometry args={[0.01, 0.4, 0.5]} />
         </mesh>
       </group>
@@ -947,7 +954,7 @@ function CameraRig({ preset }: { preset: string }) {
     dir.set(Math.sin(L.yaw) * Math.cos(L.pitch), Math.sin(L.pitch), Math.cos(L.yaw) * Math.cos(L.pitch));
     at.copy(cam.position).add(dir);
     cam.lookAt(at);
-    const fov = baseFov + L.zoom;
+    const fov = baseFov + (p.zoom ?? 0) + L.zoom;
     if (Math.abs(cam.fov - fov) > 0.01) {
       cam.fov += (fov - cam.fov) * k;
       cam.updateProjectionMatrix();
@@ -985,6 +992,8 @@ export default function Classroom3D(props: ClassroomProps) {
           reduced={reduced}
         />
         {props.cast.map((c) => {
+          // 第一人稱視角：不畫玩家自己（鏡頭就是玩家的眼睛）
+          if (c.look === "player" && (preset === "front" || preset === "seat")) return null;
           const [x, z, seated] = remapSeat(c.gx, c.gy, c.pose);
           const facing = seated ? DESK_ROT : Math.atan2(camPos[0] - x, camPos[2] - z);
           return (

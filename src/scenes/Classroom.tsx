@@ -29,6 +29,7 @@ export const CAMERAS: Record<string, ViewBox> = {
   corner: { x: -90, y: -170, w: 800, h: 620 },
   menu: { x: -360, y: -250, w: 1040, h: 740 },
   front: { x: -560, y: -250, w: 1080, h: 860 },
+  seat: { x: -560, y: -250, w: 1080, h: 860 },
 };
 
 export type CastMember = {

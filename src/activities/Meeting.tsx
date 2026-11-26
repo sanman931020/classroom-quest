@@ -415,7 +415,7 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
   }
   const handsUp = counting ? counting.reduce((a, b) => a + b, 0) % 3 : -1;
   const cast: CastMember[] = [];
-  const playerBase = role === "chair" ? POS.chairSpot : role === "emcee" ? POS.emceeSpot : role === "recorder" ? POS.recSpot : SEATS[5];
+  const playerBase = role === "chair" ? POS.chairSpot : role === "emcee" ? POS.emceeSpot : role === "recorder" ? POS.recSpot : SEATS[10];
   cast.push({
     key: "player",
     look: "player",
@@ -440,7 +440,7 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
     else cast.push({ key: "mi", look: "mi", ...SEATS[6], pose: counting && handsUp === 1 ? "raise" : "sit", mood: moodOf("mi"), nameTag: "小米" });
     SEATS.forEach((seat, i) => {
       // 阿哲第一排、浩浩第二排、安安第三排（排數從黑板算起）
-      if (i === 0 || i === 1 || i === 2 || (role === "recorder" && i === 6) || (role === "student" && i === 5)) return;
+      if (i === 0 || i === 1 || i === 2 || (role === "recorder" && i === 6) || (role === "student" && i === 10)) return;
       const hands = (e.step === 1 && seconding && i % 4 === 0) || (!!counting && i % 2 === handsUp % 2);
       cast.push({ key: `npc${i + 1}`, look: `npc${i + 1}`, ...seat, pose: hands ? "raise" : "sit", mood: pendNow?.id.includes("noise") ? "happy" : "idle" });
     });
@@ -483,7 +483,7 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
     if (role === "recorder" || role === "student") cast.push({ key: "emcee", look: "npc0", ...POS.emceeSpot, pose: m.step === 0 ? "point" : "stand", mood: speakingNow === "npc0" ? "talking" : "idle", sash: ROLE_SASH.emcee, nameTag: "小宇" });
     const yunUp = ext.cards.includes("yun") && chapter === "meeting" && m.step === 3 && !m.voted;
     SEATS.forEach((seat, i) => {
-      if (i === 1 || i === 6 || (role === "recorder" && i === 0) || (role === "student" && i === 5)) return;
+      if (i === 1 || i === 6 || (role === "recorder" && i === 0) || (role === "student" && i === 10)) return;
       const yun = i === 9;
       cast.push({
         key: `npc${i}`,
@@ -1474,7 +1474,7 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
       scene={
         <MeetingScene
           mode="meeting"
-          camera={chapter === "topic" ? "menu" : "front"}
+          camera={ext.role === "student" ? "seat" : "front"}
           positions={s.positions}
           cast={cast}
           classLabel={cls}
