@@ -12,6 +12,7 @@ import { ALL_DECISIONS, ELECTION_ENDINGS } from "../src/simulation/meetingImpact
 import { NAME, speakerOf } from "../src/data/speakers";
 import { lineFromText, lineKey, partOfLook, spoken, type NarrLine } from "../src/narration/lines";
 import type { VoicePart } from "../src/shorts/voiceLines";
+import { SAFETY_ANSWER, TUTOR_FALLBACK, TUTOR_QA, TUTOR_WELCOME } from "../src/data/tutorQA";
 
 const out = new Map<string, { id: string; part: string; text: string }>();
 const add = (l: NarrLine | string) => {
@@ -144,5 +145,8 @@ const impact = readFileSync("src/simulation/meetingImpact.ts", "utf8");
 for (const m of impact.matchAll(/text: "([^"]+)"/g)) add(m[1]);
 add("你每一步都選了很好的做法！可以換一個角色，看看別人會遇到什麼狀況。");
 add(H("如果重來一次，可以這樣做："));
+
+/* ---------- 小老師（林老師的聲音） ---------- */
+for (const t of [TUTOR_WELCOME, TUTOR_FALLBACK, SAFETY_ANSWER, ...TUTOR_QA.map((q) => q.a)]) add({ part: "teacher", text: t });
 
 process.stdout.write(JSON.stringify([...out.values()], null, 1));

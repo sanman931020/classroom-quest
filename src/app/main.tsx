@@ -17,6 +17,7 @@ import type { ShortId } from "../shorts/shortsData";
 import { Portrait, type Mood } from "../art/Character";
 import { PrefsProvider, usePrefs } from "../ui/prefs";
 import { sfx } from "../ui/sfx";
+import { Tutor } from "../tutor/Tutor";
 import { installNarrationInterrupt, narrator, useSay } from "../narration/narrator";
 import "@fontsource/bpmf-huninn/400.css";
 import "../ui/tokens.css";
@@ -197,6 +198,7 @@ function App() {
         />
       )}
       <Toast message={message} />
+      {!short && intro === 0 && <Tutor inGame={inGame} />}
       {intro > 0 && s.scene !== "home" && <Intro step={intro} ext={ext} onNext={() => {
             if (intro >= 3) afterIntro();
             setIntro((i) => (i >= 3 ? 0 : i + 1));
