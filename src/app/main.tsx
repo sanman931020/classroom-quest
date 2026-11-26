@@ -17,6 +17,7 @@ import type { ShortId } from "../shorts/shortsData";
 import { Portrait, type Mood } from "../art/Character";
 import { PrefsProvider, usePrefs } from "../ui/prefs";
 import { sfx } from "../ui/sfx";
+import { installNarrationInterrupt, narrator, useSay } from "../narration/narrator";
 import "@fontsource/bpmf-huninn/400.css";
 import "../ui/tokens.css";
 import "./styles.css";
@@ -64,6 +65,10 @@ function App() {
   const [mountKey, setMountKey] = useState(0);
   const [intro, setIntro] = useState(0);
   const [short, setShort] = useState<ShortId | null>(null);
+  useEffect(() => installNarrationInterrupt(), []);
+  /** 開場說明結束：提醒選主題和角色 */
+  const afterIntro = () => window.setTimeout(() => narrator.say({ part: "narrator", text: "今天要討論什麼呢？請先選一個主題，再選你要當的角色。" }), 300);
+  useEffect(() => narrator.setNames(ext.playerName, ext.className), [ext.playerName, ext.className]);
 
   function update(fn: (draft: Progress) => void) {
     setS((prev) => {
@@ -118,7 +123,10 @@ function App() {
               <span className="hud-label">主選單</span>
             </button>
             <div className="hud-title">
-              <span className="hud-badge">班</span>
+              <span className="hud-badge" aria-hidden="true">
+                {/* 臺北市立大學學習與媒材設計學系系徽（書本），去掉黑色底 */}
+                <img src="./logo.png" alt="" width={34} height={23} />
+              </span>
               <div>
                 <small>
                   {displayClass(ext)}・{displayName(ext)}
@@ -189,7 +197,14 @@ function App() {
         />
       )}
       <Toast message={message} />
-      {intro > 0 && s.scene !== "home" && <Intro step={intro} ext={ext} onNext={() => setIntro((i) => (i >= 3 ? 0 : i + 1))} onSkip={() => setIntro(0)} />}
+      {intro > 0 && s.scene !== "home" && <Intro step={intro} ext={ext} onNext={() => {
+            if (intro >= 3) afterIntro();
+            setIntro((i) => (i >= 3 ? 0 : i + 1));
+          }}
+          onSkip={() => {
+            setIntro(0);
+            afterIntro();
+          }} />}
       {wipe && <div className="wipe" aria-hidden="true" />}
 
       {overlay === "pause" && (
@@ -345,19 +360,20 @@ function Home({
   };
   const mood = (k: string, base: Mood): Mood => (poke === k ? "talking" : base);
   const cast: CastMember[] = [
-    { key: "mi", look: "mi", gx: 8.1, gy: 1.7, pose: "read", mood: mood("mi", "idle"), label: "和小米說話", onActivate: react("mi") },
-    { key: "hao", look: "hao", gx: 9.6, gy: 2.9, pose: poke === "hao" ? "wave" : "point", mood: mood("hao", "happy"), label: "和浩浩說話", onActivate: react("hao") },
-    { key: "zhe", look: "zhe", gx: 5.9, gy: 1.6, pose: "stand", mood: mood("zhe", "thinking"), label: "和阿哲說話", onActivate: react("zhe") },
-    { key: "anan", look: "anan", gx: 6.6, gy: 4.3, pose: "wave", mood: mood("anan", "happy"), label: "和安安說話", onActivate: react("anan") },
-    { key: "teacher", look: "teacher", gx: 4.2, gy: 3.8, pose: "stand", mood: mood("teacher", "idle"), label: "和林老師說話", onActivate: react("teacher") },
-    // 其他同學：聊天、看書、玩球、走來走去
-    { key: "n1", look: "npc1", gx: 10.7, gy: 1.1, pose: "read", mood: "happy" },
-    { key: "n2", look: "npc2", gx: 9.0, gy: 3.3, pose: beat % 2 ? "point" : "stand", mood: beat % 2 ? "talking" : "happy" },
-    { key: "n3", look: "npc3", gx: 11.4, gy: 2.6, pose: beat % 3 === 0 ? "wave" : "stand", mood: "happy" },
-    { key: "n4", look: "npc4", gx: beat % 2 ? 7.2 : 10.2, gy: beat % 2 ? 3.9 : 4.4, pose: "stand", mood: "happy" },
-    { key: "n5", look: "npc5", gx: 11.8, gy: 4.6, pose: beat % 2 ? "raise" : "stand", mood: beat % 2 ? "happy" : "talking" },
+    // 老師站在班級公約旁介紹，同學圍在公約前（位置固定，不會瞬間移動；只換動作和表情）
+    { key: "teacher", look: "teacher", gx: 10.2, gy: 2.1, pose: poke === "teacher" ? "wave" : "point", mood: mood("teacher", "happy"), label: "和林老師說話", onActivate: react("teacher") },
+    { key: "anan", look: "anan", gx: 10.6, gy: 3.6, pose: "wave", mood: mood("anan", "happy"), label: "和安安說話", onActivate: react("anan") },
+    { key: "hao", look: "hao", gx: 11.5, gy: 1.6, pose: poke === "hao" ? "wave" : "point", mood: mood("hao", "happy"), label: "和浩浩說話", onActivate: react("hao") },
+    { key: "mi", look: "mi", gx: 9.4, gy: 1.2, pose: "read", mood: mood("mi", "idle"), label: "和小米說話", onActivate: react("mi") },
+    { key: "zhe", look: "zhe", gx: 11.6, gy: 3.3, pose: "stand", mood: mood("zhe", "happy"), label: "和阿哲說話", onActivate: react("zhe") },
+    // 其他同學：聊天、看書、舉手、玩
+    { key: "n1", look: "npc1", gx: 12.3, gy: 0.9, pose: "read", mood: "happy" },
+    { key: "n2", look: "npc2", gx: 12.2, gy: 2.6, pose: beat % 2 ? "point" : "stand", mood: "happy" },
+    { key: "n3", look: "npc3", gx: 9.3, gy: 3.9, pose: beat % 3 === 0 ? "wave" : "stand", mood: "happy" },
+    { key: "n4", look: "npc4", gx: 8.4, gy: 2.4, pose: beat % 2 ? "raise" : "stand", mood: "happy" },
+    { key: "n5", look: "npc5", gx: 10.9, gy: 4.6, pose: beat % 2 ? "raise" : "stand", mood: "happy" },
     { key: "n6", look: "npc6", gx: 7.6, gy: 0.9, pose: "read", mood: "thinking" },
-    { key: "n7", look: "npc7", gx: beat % 3 === 1 ? 7.2 : 9.8, gy: 5.4, pose: "stand", mood: "idle" },
+    { key: "n7", look: "npc7", gx: 12.1, gy: 4.4, pose: beat % 3 === 1 ? "wave" : "stand", mood: "happy" },
   ];
   return (
     <div className="home">
@@ -491,6 +507,13 @@ function Settings({ onClose }: { onClose: () => void }) {
             <small>點擊、成功與完成的提示聲</small>
           </span>
           <input type="checkbox" className="switch" checked={prefs.sound} onChange={(e) => setPrefs((p) => ({ ...p, sound: e.target.checked }))} />
+        </label>
+        <label className="setting-row">
+          <span>
+            <b>朗讀</b>
+            <small>念出說明、對話和決定的影響</small>
+          </span>
+          <input type="checkbox" className="switch" checked={prefs.narrate} onChange={(e) => setPrefs((p) => ({ ...p, narrate: e.target.checked }))} />
         </label>
         <label className="setting-row">
           <span>
@@ -798,6 +821,17 @@ function Intro({ step, ext, onNext, onSkip }: { step: number; ext: MeetingExt; o
     { mood: "talking", title: "做決定、看影響", text: "對話框出現時，點一個你覺得好的做法。上面的儀表和同學的表情，會告訴你這個決定帶來什麼影響。" },
   ];
   const sl = slides[step - 1];
+  const said = [
+    "上課囉！歡迎你來到我們班。今天，我們要一起開班會。",
+    `選主題、選角色。${slides[1].text}`,
+    `做決定、看影響。${slides[2].text}`,
+  ];
+  // 第一張等鐘聲響完再念
+  useEffect(() => {
+    narrator.lock(true);
+    return () => narrator.lock(false);
+  }, []);
+  useSay([{ part: "teacher", text: said[step - 1] }], `intro-${step}`, step === 1 ? 5000 : 250, { replace: true, force: true });
   return (
     <div className="overlay intro-overlay">
       <div className="overlay-card intro-card" role="dialog" aria-modal="true" aria-label="開場說明">

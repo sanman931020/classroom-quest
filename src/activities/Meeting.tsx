@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { characters, meetingSteps, officers, plans, sampleVotes } from "../data/content";
+import { meetingSteps, officers, plans, sampleVotes } from "../data/content";
 import {
   ARGUMENTS,
   MEASURES,
@@ -37,6 +37,9 @@ import { Portrait, type Look, type Mood } from "../art/Character";
 import { SEATS, type CastMember } from "../scenes/Classroom";
 import { MeetingScene } from "../scenes3d/MeetingScene";
 import { sfx } from "../ui/sfx";
+import { NAME, speakerOf } from "../data/speakers";
+import { narrator, useSay } from "../narration/narrator";
+import { partOfLook, type NarrLine } from "../narration/lines";
 import type { ShortId } from "../shorts/shortsData";
 import { usePrefs } from "../ui/prefs";
 
@@ -51,7 +54,6 @@ export type MeetingProps = ActivityProps & {
   startChapter?: Chapter | null;
 };
 
-const NAME: Record<string, string> = { ...Object.fromEntries(characters.map((c) => [c.id, c.name])), npc0: "小宇", npc9: "小芸" };
 const STEP_LINES = [
   "司儀：班會開始。",
   "主席：今天一起解決閱讀角的使用問題。",
@@ -69,21 +71,18 @@ const POS = {
   recSpot: { gx: 1.72, gy: 2.2 },
 };
 
-/** 對話台詞前綴決定說話者（例如「（主席）」） */
-function speakerOf(d: Decision, topic: TopicId, role: MeetingRole): { look: Look; name: string; role: string; text: string } {
-  const m = d.prompt.match(/^（(主席安安|主席|司儀安安|司儀)）/);
-  const text = m ? d.prompt.slice(m[0].length) : d.prompt;
-  if (m) {
-    if (m[1].startsWith("主席")) {
-      if (topic === "election") return { look: "npc0", name: "小宇", role: "主席", text };
-      return { look: "anan", name: "安安", role: "主席", text };
-    }
-    if (topic === "election") return { look: "hao", name: "浩浩", role: "司儀", text };
-    return role === "recorder" || role === "student" ? { look: "npc0", name: "小宇", role: "司儀", text } : { look: "anan", name: "安安", role: "司儀", text };
-  }
-  const roleLabel = d.speaker === "teacher" ? "導師" : d.speaker === "zhe" && topic === "proposal" ? "衛生股長" : "同學";
-  return { look: d.speaker, name: NAME[d.speaker], role: roleLabel, text };
+/** 這段內容出現時念出來（key 改變才重念） */
+function Say({ k, lines, delay = 160 }: { k: string; lines: (NarrLine | string)[]; delay?: number }) {
+  useSay(
+    lines.map((l) => (typeof l === "string" ? { part: "narrator" as const, text: l } : l)),
+    k,
+    delay,
+  );
+  return null;
 }
+const ORDINAL = ["第一", "第二", "第三", "第四"];
+/** 標題用男聲念 */
+const H = (text: string): NarrLine => ({ part: "host", text });
 
 export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets, openHandbook, openShort, startChapter }: MeetingProps) {
   const m = s.meeting;
@@ -431,22 +430,24 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
 
   if (electionScene) {
     const cand = e.step >= 1 || !!e.winner;
-    cast.push({ key: "anan", look: "anan", gx: cand ? 2.1 : SEATS[2].gx, gy: cand ? 3.3 : SEATS[2].gy, pose: cand ? (e.winner === "安安" ? "wave" : "stand") : "sit", mood: e.winner === "安安" ? "happy" : speakingNow === "anan" ? "talking" : "idle", nameTag: "安安" });
-    cast.push({ key: "zhe", look: "zhe", gx: cand ? 2.4 : SEATS[3].gx, gy: cand ? 8.0 : SEATS[3].gy, pose: cand ? (e.winner === "阿哲" ? "wave" : "stand") : "sit", mood: e.winner === "阿哲" ? "happy" : speakingNow === "zhe" ? "talking" : moodOf("zhe"), nameTag: "阿哲" });
+    // 候選人留在自己的座位：輪到說話時在座位旁站起來
+    cast.push({ key: "anan", look: "anan", ...SEATS[2], pose: cand && speakingNow === "anan" ? "stand" : counting && handsUp === 2 ? "raise" : "sit", mood: e.winner === "安安" ? "happy" : speakingNow === "anan" ? "talking" : "idle", nameTag: "安安" });
+    cast.push({ key: "zhe", look: "zhe", ...SEATS[0], pose: cand && speakingNow === "zhe" ? "stand" : counting && handsUp === 0 ? "raise" : "sit", mood: e.winner === "阿哲" ? "happy" : speakingNow === "zhe" ? "talking" : moodOf("zhe"), nameTag: "阿哲" });
     if (role !== "chair") cast.push({ key: "npc0", look: "npc0", ...POS.chairSpot, pose: "stand", mood: speakingNow === "npc0" ? "talking" : "idle", sash: ROLE_SASH.chair, nameTag: "小宇" });
-    if (role !== "emcee") cast.push({ key: "hao", look: "hao", ...POS.emceeSpot, pose: speakingNow === "hao" ? "point" : "stand", mood: moodOf("hao"), sash: ROLE_SASH.emcee, nameTag: "浩浩" });
-    else cast.push({ key: "hao", look: "hao", ...SEATS[6], pose: counting && handsUp === 0 ? "raise" : "sit", mood: moodOf("hao"), nameTag: "浩浩" });
+    // 浩浩（司儀）也在自己的座位：宣布時站起來
+    cast.push({ key: "hao", look: "hao", ...SEATS[1], pose: role !== "emcee" && speakingNow === "hao" ? "stand" : counting && handsUp === 0 ? "raise" : "sit", mood: moodOf("hao"), sash: role !== "emcee" ? ROLE_SASH.emcee : undefined, nameTag: "浩浩" });
     if (role !== "recorder") cast.push({ key: "mi", look: "mi", ...POS.recSpot, pose: "sit", mood: moodOf("mi"), sash: ROLE_SASH.recorder, nameTag: "小米" });
-    else cast.push({ key: "mi", look: "mi", ...SEATS[1], pose: counting && handsUp === 1 ? "raise" : "sit", mood: moodOf("mi"), nameTag: "小米" });
+    else cast.push({ key: "mi", look: "mi", ...SEATS[6], pose: counting && handsUp === 1 ? "raise" : "sit", mood: moodOf("mi"), nameTag: "小米" });
     SEATS.forEach((seat, i) => {
-      if (i === 2 || i === 3 || (role === "emcee" && i === 6) || (role === "recorder" && i === 1) || (role === "student" && i === 5)) return;
+      // 阿哲第一排、浩浩第二排、安安第三排（排數從黑板算起）
+      if (i === 0 || i === 1 || i === 2 || (role === "recorder" && i === 6) || (role === "student" && i === 5)) return;
       const hands = (e.step === 1 && seconding && i % 4 === 0) || (!!counting && i % 2 === handsUp % 2);
       cast.push({ key: `npc${i + 1}`, look: `npc${i + 1}`, ...seat, pose: hands ? "raise" : "sit", mood: pendNow?.id.includes("noise") ? "happy" : "idle" });
     });
   } else {
     const canInvite = chapter === "meeting" && m.step === 3 && !m.voted;
     (["mi", "hao"] as CharacterId[]).forEach((id) => {
-      const seat = SEATS[id === "mi" ? 1 : 6];
+      const seat = SEATS[id === "mi" ? 6 : 1];
       const speaking = m.speaker === id;
       const queued = m.queue.includes(id);
       cast.push({
@@ -524,6 +525,11 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
         mood={pendNow.trigger === "tie" ? "confused" : "talking"}
         text={pendSpeaker.text}
         progress={`${me}（${roleInfo.name}）：${pendNow.question}`}
+        say={[
+          { part: partOfLook(pendSpeaker.look), text: pendSpeaker.text },
+          { part: "narrator", text: pendNow.question },
+          { part: "narrator", text: pendNow.options.map((o, i) => `${ORDINAL[i]}，${o.label}。`).join("") },
+        ]}
         choices={pendNow.options.map((o) => ({ label: o.label, onSelect: () => choose(pendNow, o.id) }))}
       />
     );
@@ -595,6 +601,7 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
     const picked = ROLES.find((r) => r.id === ext.role);
     body = (
       <>
+        <Say k="topic-head" lines={["今天要討論什麼呢？請先選一個主題，再選你要當的角色。"]} delay={400} />
         <h2 className="mission-title">{me}，今天要討論什麼？</h2>
         <div className="topic-picker" role="group" aria-label="討論主題">
           {TOPICS.map((t) => (
@@ -607,6 +614,7 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
                 updateExt((x) => {
                   x.topic = t.id;
                 });
+                narrator.say([H(`${t.title}。`), { part: "narrator", text: `${t.sub}，一共有${t.steps.length}個步驟。` }]);
               }}
             >
               <b>{t.title}</b>
@@ -676,6 +684,7 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
         )}
         {matching ? (
           <div className="task-card">
+            <Say k="match" lines={[H("先認識：幹部做什麼？"), "先點一位幹部，再點他的工作。"]} />
             <h3 className="task-title">先認識：幹部做什麼？</h3>
             <p className="small">先點幹部，再點他的工作。</p>
             <div className="match-grid">
@@ -730,6 +739,7 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
           <div className="task-card">
             {e.step === 0 && (
               <>
+                <Say k={`el-0-${role}`} lines={[H("步驟一，提名人選。"), role === "student" ? "你想提名誰當班長？" : "同學提名了兩位人選。"]} />
                 <h3 className="task-title">步驟一：提名人選</h3>
                 <p className="small">{role === "student" ? "你想提名誰當班長？" : "同學提名了兩位人選。"}</p>
                 <div className="big-choices" role="group" aria-label="提名班長">
@@ -754,6 +764,10 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
             )}
             {e.step === 1 && (
               <>
+                <Say
+                  k="el-1"
+                  lines={[H("步驟二，徵求附議，進行討論。"), { part: "anan", text: "我會每天確認值日表。" }, { part: "zhe", text: "我會清楚記錄大家的需求。" }, "附議：一個人以上贊成這個提議，用舉手或口頭表達。"]}
+                />
                 <h3 className="task-title">步驟二：徵求附議，進行討論</h3>
                 <div className="compare">
                   <div className="compare-card">
@@ -776,6 +790,7 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
             )}
             {e.step === 2 && (
               <>
+                {!tieVisible && <Say k="el-2" lines={[H("步驟三，舉手表決。"), "你要舉手支持誰？"]} />}
                 <h3 className="task-title">步驟三：舉手表決</h3>
                 <p className="small">{tieVisible ? "第一次表決 14：14，平票了！" : "你要舉手支持誰？"}</p>
                 <div className="big-choices" role="group" aria-label="我的舉手支持">
@@ -808,6 +823,7 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
             )}
             {e.step === 3 && (
               <>
+                <Say k="el-3" lines={[H("步驟四，宣布結果。")]} />
                 <h3 className="task-title">步驟四：宣布結果</h3>
                 <p className="sim-note">
                   再表決：{e.vote} 16 票、{other} 12 票（模擬）
@@ -817,6 +833,7 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
           </div>
         ) : (
           <p className="success-line">
+            <Say k={`el-win-${e.winner}`} lines={[`這次模擬選出的班長是${e.winner}。班上同學都有機會擔任幹部，為大家服務。`]} />
             <Icon name="check" size={18} /> 本次教學模擬班長：{e.winner}。班上同學都有機會擔任幹部，為大家服務。
           </p>
         )}
@@ -836,6 +853,7 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
   } else if (chapter === "proposal") {
     body = (
       <>
+        <Say k="proposal" lines={[H("提出問題：我的提案單。"), "寫出你發現的問題、你的提案和理由，也可以點下面的句子幫忙。"]} delay={400} />
         <h2 className="mission-title">提出問題：我的提案單</h2>
         {!e.winner && (
           <div className="task-card warn">
@@ -933,6 +951,7 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
     else if (m.step !== 3)
       task = (
         <div className="task-card">
+          <Say k={`proc-${m.step}`} lines={[H(`程序${"一二三四五六"[m.step]}，${meetingSteps[m.step]}。`)]} />
           <h3 className="task-title">
             程序 {m.step + 1}：{meetingSteps[m.step]}
           </h3>
@@ -959,6 +978,7 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
     else if (sub === "second")
       task = (
         <div className="task-card">
+          <Say k="sub-second" lines={[H("提案討論，第一步：徵求附議。"), "看看有沒有同學贊成這個提案。"]} />
           <h3 className="task-title">提案討論 1／5：徵求附議</h3>
           <p className="proposal-show">
             <b>提案：</b>
@@ -981,6 +1001,7 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
     else if (sub === "talk")
       task = (
         <div className="task-card">
+          <Say k="sub-talk" lines={[H("提案討論，第二步：輪流發言。"), "點想發言的同學舉手，再請主席依順序同意。"]} />
           <h3 className="task-title">提案討論 2／5：輪流發言</h3>
           <p className="small">點想發言的同學舉手，再請主席依順序同意。</p>
           <div className="queue-people">
@@ -1002,6 +1023,7 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
     else if (sub === "predict")
       task = (
         <div className="task-card">
+          <Say k="sub-predict" lines={[H("提案討論，第三步：預測影響。"), "每個方案，誰最可能覺得不方便？"]} />
           <h3 className="task-title">提案討論 3／5：預測影響</h3>
           <p className="small">每個方案，誰最可能覺得不方便？</p>
           {PLAN_IDS.map((p, i) => {
@@ -1039,6 +1061,7 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
     else if (sub === "vote")
       task = (
         <div className="task-card">
+          <Say k="sub-vote" lines={[H("提案討論，第四步：表決。"), "按下按鈕，看看教材示範的表決結果。"]} />
           <h3 className="task-title">提案討論 4／5：表決</h3>
           <div className="votes">
             {plans.map((v, i) => (
@@ -1060,6 +1083,7 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
     else
       task = (
         <div className="task-card">
+          <Say k="sub-minority" lines={[H("提案討論，第五步：尊重少數。"), "表決的結果是分區。小米還擔心太吵，可以怎麼照顧少數？可以選很多個。"]} />
           <h3 className="task-title">提案討論 5／5：尊重少數</h3>
           <p className="success-line small-line">
             <Icon name="flag" size={16} /> 決議：分區（6／18／4 票）
@@ -1114,6 +1138,8 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
         {!finished && <TaskHint icon="lock">完成{topic === "election" ? "選舉" : "班會"}後，這裡會模擬接下來一週的情形。</TaskHint>}
         {finished && (
           <>
+            <Say k={`ending-${ending.text}`} lines={[ending.text, `接下來，看看${topic === "election" ? "選舉後的一週" : "閱讀角試行一週"}會發生什麼事。`]} delay={500} />
+            <Say k={`day-${dayIdx}-${week[dayIdx].text}`} lines={[H(`${week[dayIdx].day}。`), week[dayIdx].text]} delay={600} />
             <div className={`ending-card level-${ending.level}`}>
               <div className="ending-head">
                 <Portrait look="player" mood={ending.level === "low" ? "thinking" : "happy"} size={44} />
@@ -1190,6 +1216,14 @@ export function Meeting({ s, update, notify, ext, updateExt, goHome, openSheets,
             </div>
             {reflectTab === "redo" && (
               <div className="task-card">
+                <Say
+                  k={`redo-${thinkOnes.map((d) => d.id).join()}`}
+                  lines={
+                    thinkOnes.length === 0
+                      ? ["你每一步都選了很好的做法！可以換一個角色，看看別人會遇到什麼狀況。"]
+                      : [H("如果重來一次，可以這樣做："), ...thinkOnes.slice(0, 3).map((d) => `${d.question}可以試試：${d.options.find((o) => o.good)!.label}。`)]
+                  }
+                />
                 {thinkOnes.length === 0 ? (
                   <p>你每一步都選了很好的做法！可以換一個角色，看看別人會遇到什麼狀況。</p>
                 ) : (

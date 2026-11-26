@@ -213,6 +213,10 @@ class Audio {
       this.configure(b.enabled, b.volume, b.music);
     }
   }
+  /** 聲音是否開啟 */
+  get on() {
+    return this.enabled;
+  }
   get level() {
     return this.volume;
   }

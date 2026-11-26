@@ -2,6 +2,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Character, Portrait, type Look, type Mood } from "../art/Character";
 import { Icon, type IconName } from "./icons";
 import { sfx } from "../ui/sfx";
+import { useSay } from "../narration/narrator";
+import { lineFromText, partOfLook, type NarrLine } from "../narration/lines";
 
 /* ------------------------------------------------------------------ */
 /* 角色對話框                                                          */
@@ -21,6 +23,7 @@ export function DialogueBox({
   choices = [],
   onClose,
   progress,
+  say,
 }: {
   speaker: Look;
   name: string;
@@ -30,7 +33,10 @@ export function DialogueBox({
   choices?: Choice[];
   onClose?: () => void;
   progress?: string;
+  /** 朗讀內容；預設念說話者的台詞 */
+  say?: NarrLine[];
 }) {
+  useSay(say ?? [{ part: partOfLook(speaker), text }], `${speaker}|${text}`, 260);
   return (
     <div className="dialogue-box" role="dialog" aria-label={`${name}說話`} key={`${speaker}-${text}`}>
       <div className="dialogue-portrait">
@@ -293,6 +299,7 @@ export function Confetti() {
 /* ------------------------------------------------------------------ */
 export function Toast({ message }: { message: string }) {
   const [shown, setShown] = useState(true);
+  useSay([lineFromText(message)], message, 120);
   useEffect(() => {
     setShown(true);
     const t = window.setTimeout(() => setShown(false), 5200);

@@ -6,7 +6,8 @@ import { paletteOf, type Look } from "../art/Character";
  *   以臺灣女聲為基準，林老師原聲；旁白、安安、小米、浩浩、阿哲、小宇、大家各用不同升調與語速。
  * 之後若有真人錄音，用相同檔名覆蓋即可。
  */
-export type VoicePart = "teacher" | "narrator" | "anan" | "mi" | "hao" | "zhe" | "yu" | "chorus" | "girl" | "boy";
+/** host：念標題的男聲 */
+export type VoicePart = "host" | "teacher" | "narrator" | "anan" | "mi" | "hao" | "zhe" | "yu" | "chorus" | "girl" | "boy";
 
 export const lineId = (shortId: string, scene: number, cap: number) => `${shortId}-${scene + 1}-${cap + 1}`;
 

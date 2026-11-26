@@ -113,7 +113,7 @@ h1, h2, h3, p { margin: 0; }
 .hud-title { display: flex; align-items: center; gap: var(--sp-2); margin-right: auto; }
 .hud-title small { display: block; font-size: 0.75rem; color: var(--c-ink-soft); line-height: 1.1; }
 .hud-title b { font-family: var(--font-story); font-size: var(--fs-lg); color: var(--c-forest); line-height: 1.1; }
-.hud-badge { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--c-coral); color: #fff; font-weight: 900; box-shadow: 0 3px 0 var(--c-coral-deep); }
+.hud-badge { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: #fffdf8; border: 2px solid var(--c-coral); box-shadow: 0 3px 0 var(--c-coral-deep); }
 .hud-progress { display: flex; gap: 5px; }
 .hud-progress i { width: 18px; height: 8px; border-radius: 4px; background: var(--c-paper-deep); }
 .hud-progress i.done { background: var(--c-teal); }

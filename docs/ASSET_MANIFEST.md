@@ -43,6 +43,8 @@
 | 上課鐘聲 | Web Audio 合成鐘聲音色，旋律為西敏寺鐘聲（1793，公有領域） |
 | 背景音樂 | 原創音樂盒循環（C 大調 I–vi–IV–V，88 BPM），Web Audio 即時合成，可關閉 |
 | 短片人聲（43 句） | **BreezyVoice-300M**（聯發創新基地 MediaTek Research，Apache-2.0，臺灣華語）在本機產生的 MP3：`public/voice/shorts/<短片>-<場景>-<句>.mp3`。以模型附的臺灣女聲（data/example.wav）為基準；林老師原聲、旁白與小朋友以不同升調（1.5～5.5 半音）與語速區分。破音字由 g2pw 注音處理。重新產生：`scripts/gen_voices_breezy.py`（Windows 以替身略過僅 Linux 的文字正規化）。可用同檔名真人錄音覆蓋 |
+| 遊戲朗讀（約 530 句） | 同一個 BreezyVoice-300M 在本機產生：`public/voice/game/<key>.mp3`＋`manifest.json`。key＝聲音角色＋朗讀文字的 FNV-1a 雜湊（`src/narration/lines.ts`）。清單：`npx tsx scripts/dump-game-lines.ts`。標題由男聲（host）念，是臺灣女聲降 5.5 個半音做成的，不是真人男聲 |
+| 系徽 `public/logo.png` | 臺北市立大學學習與媒材設計學系系徽中的書本圖案，由使用者提供；只把黑色背景改成透明，圖案未修改。使用於遊戲左上角 |
 | 遊戲內對話配音 | **未製作**（第三／四階段） |
 
 ## 仍屬佔位、建議第三／四階段替換

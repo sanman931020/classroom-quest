@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { narrator } from "../narration/narrator";
 import { Character, Portrait, type Marker, type Mood, type Pose } from "../art/Character";
 import { SvgDefs } from "../art/SvgDefs";
 import { Icon } from "../components/icons";
@@ -250,6 +251,7 @@ export function ShortPlayer({ id, onClose }: { id: ShortId; onClose: () => void 
   // 輕快背景音樂（短片專用主題），關閉時換回遊戲音樂；預載人聲
   useEffect(() => {
     preloadLines(short.scenes.flatMap((sc, i) => sc.captions.map((_, ci) => lineId(short.id, i, ci))));
+    narrator.stop();
     sfx.forceSound(true);
     sfx.setStyle("lively");
     sfx.startMusic();

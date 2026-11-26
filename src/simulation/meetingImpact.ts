@@ -145,7 +145,7 @@ export function roleEnding(role: MeetingRole, choices: Record<string, string>, m
   return { level, text, good: score, total };
 }
 
-const ELECTION_ENDINGS: Record<MeetingRole, Record<"high" | "mid" | "low", string>> = {
+export const ELECTION_ENDINGS: Record<MeetingRole, Record<"high" | "mid" | "low", string>> = {
   chair: {
     high: "你是公平的選舉主持人。每一步都照程序，平票也冷靜處理，大家都相信這次的結果。",
     mid: "選舉完成了！有些步驟可以更仔細，讓每一票、每個理由都被重視。",

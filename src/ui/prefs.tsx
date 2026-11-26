@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { sfx } from "./sfx";
+import { narrator } from "../narration/narrator";
 import { startZhuyinFix } from "./zhuyin";
 
 /**
@@ -11,6 +12,8 @@ export interface Prefs {
   sound: boolean;
   /** 背景音樂 */
   music: boolean;
+  /** 朗讀（念出說明、對話與影響） */
+  narrate: boolean;
   volume: number; // 0–1
   motion: MotionPref;
   lowPower: boolean;
@@ -25,6 +28,7 @@ const KEY = "classroom-quest-ui-v1";
 const defaults: Prefs = {
   sound: true,
   music: true,
+  narrate: true,
   volume: 0.6,
   motion: "auto",
   lowPower: false,
@@ -42,6 +46,7 @@ export function loadPrefs(): Prefs {
     return {
       sound: typeof p.sound === "boolean" ? p.sound : defaults.sound,
       music: typeof p.music === "boolean" ? p.music : true,
+      narrate: typeof p.narrate === "boolean" ? p.narrate : true,
       volume:
         typeof p.volume === "number" && p.volume >= 0 && p.volume <= 1
           ? p.volume
@@ -104,6 +109,7 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
     root.dataset.lowpower = prefs.lowPower ? "on" : "off";
     root.dataset.zhuyin = prefs.zhuyin ? "on" : "off";
     sfx.configure(prefs.sound, prefs.volume, prefs.music);
+    narrator.setEnabled(prefs.narrate);
   }, [prefs]);
   // 背景音樂：第一次觸控／點擊後才開始（瀏覽器自動播放限制）
   useEffect(() => {

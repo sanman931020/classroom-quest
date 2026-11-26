@@ -101,6 +101,7 @@ export function preloadLines(ids: string[]) {
 }
 
 const FALLBACK: Record<VoicePart, Part> = {
+  host: "boy",
   teacher: "teacher",
   narrator: "narrator",
   chorus: "narrator",

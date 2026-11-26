@@ -3,6 +3,25 @@ import { test, expect, type Page } from "@playwright/test";
 test.use({ viewport: { width: 1024, height: 768 } });
 test.setTimeout(150_000);
 
+/** 每個流程結束後：玩過時念到的每一句，都要有預錄的臺灣口音音檔 */
+test.afterEach(async ({ page }, info) => {
+  const heard = await page.evaluate(() => window.__narration ?? {}).catch(() => ({}) as Record<string, { part: string; text: string }>);
+  const manifest = await page.evaluate(() => fetch("./voice/game/manifest.json").then((r) => (r.ok ? r.json() : {}))).catch(() => ({}));
+  // 朗讀音檔尚未產生（沒有 manifest）時：先只提醒，改用裝置內建語音
+  if (!Object.keys(manifest).length) {
+    info.annotations.push({ type: "warning", description: "public/voice/game/manifest.json 尚未產生，朗讀使用裝置內建語音" });
+    return;
+  }
+  const missing = Object.entries(heard)
+    .filter(([k]) => !(k in manifest))
+    .map(([id, l]) => ({ id, ...l }));
+  if (missing.length) {
+    console.log("NARRATION-MISSING " + JSON.stringify(missing));
+    await info.attach("narration-missing", { body: JSON.stringify(missing, null, 1), contentType: "application/json" });
+  }
+  expect(missing.map((m) => `${m.part}:${m.text}`), "朗讀句子缺少音檔").toEqual([]);
+});
+
 async function enter(page: Page, cls = "四年五班", name = "小明", zhuyin = false) {
   await page.goto("/");
   // 流程測試以純文字比對；注音破音字校正另有專門測試

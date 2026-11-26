@@ -14,23 +14,17 @@ import { usePrefs } from "../ui/prefs";
  */
 type V3 = [number, number, number];
 const PRESETS: Record<string, { pos: V3; target: V3 }> = {
-  // 站在教室前方角落、略高於學生視線，看向全班
-  front: { pos: [0.9, 2.45, 9.4], target: [7.2, 0.75, 4.2] },
-  full: { pos: [0.9, 2.45, 9.4], target: [7.2, 0.75, 4.2] },
-  // 主選單：看向窗邊閱讀角
-  menu: { pos: [4.4, 1.9, 6.6], target: [8.4, 1.0, 1.6] },
+  // 站在黑板旁邊（老師的位置）看向全班：坐著的同學面向黑板，所以看得到大家的臉
+  front: { pos: [2.1, 1.8, 8.5], target: [8.6, 0.8, 5.0] },
+  full: { pos: [2.1, 1.8, 8.5], target: [8.6, 0.8, 5.0] },
+  // 主選單：靠近後牆的班級公約，老師和同學聚在公約前（公約落在畫面右半，左半是選單卡片）
+  menu: { pos: [5.8, 2.2, 7.2], target: [8.9, 1.1, 0.9] },
   corner: { pos: [4.4, 1.9, 6.6], target: [8.4, 1.0, 1.6] },
 };
 const DESKS: [number, number][] = [];
 for (const gy of [5.4, 7.1, 8.8]) for (const gx of [4.3, 6.3, 8.3, 10.3]) DESKS.push([gx, gy]);
-// 3D 座位：學生坐在課桌後方、面向鏡頭（讓表情與舉手清楚可見）
-const CAM_DIR = (() => {
-  const p = PRESETS.front;
-  const dx = p.pos[0] - p.target[0];
-  const dz = p.pos[2] - p.target[2];
-  const l = Math.hypot(dx, dz);
-  return [dx / l, dz / l] as const;
-})();
+// 3D 座位：學生坐在課桌後方、面向黑板（黑板在 x=0 的前牆，面向 -x）
+const CAM_DIR = [-1, 0] as const;
 const DESK_ROT = Math.atan2(CAM_DIR[0], CAM_DIR[1]);
 const deskCenter = (gx: number, gy: number) => [gx + 0.3, gy + 0.23] as const;
 const seat3d = (gx: number, gy: number) => {
@@ -41,8 +35,8 @@ const seat3d = (gx: number, gy: number) => {
 const near = (a: number, b: number) => Math.abs(a - b) < 0.01;
 function remapSeat(x: number, z: number, pose?: string): [number, number, boolean] {
   const seatedPose = pose === "sit" || pose === "raise";
-  // 司儀：避免太靠近鏡頭
-  if (near(x, 1.4) && near(z, 7.3)) return [2.6, 7.2, false];
+  // 司儀：站在黑板另一側，避免太靠近鏡頭
+  if (near(x, 1.4) && near(z, 7.3)) return [1.5, 3.4, false];
   // 記錄桌
   if (near(x, 1.72) && near(z, 2.2)) {
     const [sx, sz] = seat3d(1.0, 1.95);

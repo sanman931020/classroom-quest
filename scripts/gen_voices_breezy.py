@@ -13,6 +13,7 @@ Windows 上沒有 ttsfrd／WeTextProcessing（僅 Linux），本腳本以「不�
 林老師維持原聲、旁白略高，兒童角色以不同升調與語速區分（音高位移不改變長度）。
 """
 import json
+import os
 import sys
 import types
 from pathlib import Path
@@ -41,12 +42,18 @@ import soundfile as sf  # noqa: E402
 from g2pw import G2PWConverter  # noqa: E402
 
 import single_inference as si  # noqa: E402
+import torch  # noqa: E402
+
+# single_inference 預設只用 1 個執行緒；改用環境變數 THREADS（預設 8）加快產生
+torch.set_num_threads(int(os.environ.get("THREADS", "8")))
 
 PROMPT_WAV = BREEZY / "data" / "example.wav"
 PROMPT_TEXT = "在密碼學中，加密是將明文資訊改變為難以讀取的密文內容，使之不可讀的方法。只有擁有解密方法的對象，經由解密過程，才能將密文還原為正常可讀的內容。"
 
 # 角色：升調（半音）、語速倍率
 CAST = {
+    # 念標題的男聲：臺灣女聲降 5.5 個半音
+    "host": (-5.5, 1.0),
     "teacher": (0.0, 0.97),
     "narrator": (1.5, 1.04),
     "anan": (5.0, 1.08),
@@ -77,18 +84,19 @@ def main():
     lines = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
     out = Path(sys.argv[3]).resolve()
     out.mkdir(parents=True, exist_ok=True)
-    only = set(sys.argv[4].split(",")) if len(sys.argv) > 4 else None
-    import os
-
+    only = set(sys.argv[4].split(",")) if len(sys.argv) > 4 and sys.argv[4] else None
+    skip_done = os.environ.get("SKIP_DONE") == "1"
     os.chdir(BREEZY)
     cosy = si.CustomCosyVoice("MediaTek-Research/BreezyVoice-300M")
     conv = G2PWConverter()
     prompt16k = si.load_wav(str(PROMPT_WAV), 16000)
     prompt_text = si.get_bopomofo_rare(cosy.frontend.text_normalize_new(PROMPT_TEXT, split=False), conv)
-    manifest_path = out / "manifest.json"
+    manifest_path = out / os.environ.get("MANIFEST", "manifest.json")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
     for ln in lines:
         if only and ln["id"] not in only:
+            continue
+        if skip_done and (out / f'{ln["id"]}.mp3').exists():
             continue
         semis, rate = CAST[ln["part"]]
         text = si.get_bopomofo_rare(cosy.frontend.text_normalize_new(ln["text"], split=False), conv)

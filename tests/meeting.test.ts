@@ -147,3 +147,17 @@ describe("短片人聲", () => {
     for (const s of SHORTS) expect(s.scenes.reduce((a, b) => a + b.dur, 0)).toBeLessThanOrEqual(90);
   });
 });
+
+import { fnv, lineFromText, lineKey, spoken } from "../src/narration/lines";
+describe("遊戲朗讀", () => {
+  it("同樣的聲音與文字得到同一個音檔 key", () => {
+    expect(lineKey({ part: "narrator", text: "步驟一，提名人選。" })).toBe(lineKey({ part: "narrator", text: "步驟一，提名人選。" }));
+    expect(lineKey({ part: "host", text: "步驟一，提名人選。" })).not.toBe(lineKey({ part: "narrator", text: "步驟一，提名人選。" }));
+    expect(fnv("")).toHaveLength(8);
+  });
+  it("「名字：」開頭用角色聲音，數字與符號轉成好念的文字", () => {
+    expect(lineFromText("小米：午休時，我想安安靜靜的看書。")).toEqual({ part: "mi", text: "午休時，我想安安靜靜的看書。" });
+    expect(lineFromText("班會開始！").part).toBe("narrator");
+    expect(spoken("再表決結果：安安 16 票（模擬票數）")).toBe("再表決結果：安安 十六 票");
+  });
+});
