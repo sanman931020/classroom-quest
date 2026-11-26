@@ -273,11 +273,11 @@ test("小短片有人聲音檔：載入 MP3 並播放（聲音關也照樣播放
   expect(mp3.every((s) => s === 200 || s === 206 || s === 304)).toBe(true);
 });
 
-test("小老師：打字問問題，得到題庫的回答與推薦問題", async ({ page }) => {
+test("AI小老師：打字問問題，得到題庫的回答與推薦問題", async ({ page }) => {
   await enter(page);
-  await page.getByRole("button", { name: "打開小老師，問問題" }).click();
-  const chat = page.getByRole("dialog", { name: "小老師聊天室" });
-  await expect(chat).toContainText("我是小老師");
+  await page.getByRole("button", { name: "打開AI小老師，問問題" }).click();
+  const chat = page.getByRole("dialog", { name: "AI小老師聊天室" });
+  await expect(chat).toContainText("我是AI小老師");
   await chat.getByRole("textbox", { name: "輸入問題" }).fill("如果投票一樣多怎麼辦");
   await chat.getByRole("button", { name: "送出" }).click();
   await expect(chat).toContainText("抽籤");

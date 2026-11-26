@@ -34,7 +34,7 @@ const CASES: [string, string][] = [
   ["可以跟好朋友一起舉手嗎", "follow-friend"],
 ];
 
-describe("小老師題庫比對", () => {
+describe("AI小老師題庫比對", () => {
   it.each(CASES)("「%s」→ %s", (q, id) => {
     expect(answer(q)?.qa.id).toBe(id);
   });

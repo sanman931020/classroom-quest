@@ -8,8 +8,8 @@ import { SAFETY_ANSWER, TUTOR_FALLBACK, TUTOR_QA, TUTOR_TOPICS, TUTOR_WELCOME, t
 import { answer, isSafetyQuestion, suggestions } from "./match";
 
 /**
- * 小老師：右下角的聊天視窗（像通訊軟體的對話框）。
- * 學生可以打字或按麥克風用說的問問題，小老師從題庫找最合適的答案回答，並念出來。
+ * AI小老師：右下角的聊天視窗（像通訊軟體的對話框）。
+ * 學生可以打字或按麥克風用說的問問題，AI小老師從題庫找最合適的答案回答，並念出來。
  * 題庫與比對都在這台裝置上，不連網、不使用外部 AI 服務，也不保存對話。
  */
 type Msg = { id: number; from: "me" | "tutor"; text: string; src?: TutorQA["src"]; chips?: TutorQA[]; topics?: boolean; time: string };
@@ -83,14 +83,14 @@ export function Tutor({ inGame }: { inGame: boolean }) {
   return (
     <div className={`tutor ${inGame ? "in-game" : ""}`}>
       {open && (
-        <section className="tutor-chat" role="dialog" aria-label="小老師聊天室">
+        <section className="tutor-chat" role="dialog" aria-label="AI小老師聊天室">
           <header className="tutor-head">
             <Portrait look="teacher" mood="happy" size={36} />
             <div>
-              <b>小老師</b>
+              <b>AI小老師</b>
               <small>班會問題都可以問我</small>
             </div>
-            <button className="icon-btn" aria-label="關閉小老師" onClick={() => setOpen(false)}>
+            <button className="icon-btn" aria-label="關閉AI小老師" onClick={() => setOpen(false)}>
               <Icon name="close" />
             </button>
           </header>
@@ -134,7 +134,7 @@ export function Tutor({ inGame }: { inGame: boolean }) {
             }}
           >
             <input ref={input} value={text} onChange={(e) => setText(e.target.value)} placeholder="輸入你的問題…" aria-label="輸入問題" maxLength={80} />
-            <MicButton label="用說的問小老師" onText={(t) => setText((v) => (v ? v + t : t))} />
+            <MicButton label="用說的問AI小老師" onText={(t) => setText((v) => (v ? v + t : t))} />
             <button type="submit" className="btn btn-primary tutor-send" disabled={!text.trim()}>
               送出
             </button>
@@ -143,7 +143,7 @@ export function Tutor({ inGame }: { inGame: boolean }) {
       )}
       <button
         className={`tutor-fab ${open ? "is-open" : ""}`}
-        aria-label={open ? "關閉小老師" : "打開小老師，問問題"}
+        aria-label={open ? "關閉AI小老師" : "打開AI小老師，問問題"}
         aria-expanded={open}
         onClick={() => {
           sfx.play("tap");
@@ -151,7 +151,7 @@ export function Tutor({ inGame }: { inGame: boolean }) {
         }}
       >
         <Portrait look="teacher" mood="happy" size={44} />
-        <span>小老師</span>
+        <span>AI小老師</span>
       </button>
     </div>
   );
