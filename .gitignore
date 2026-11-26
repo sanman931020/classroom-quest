@@ -4,3 +4,6 @@ source-reading.local.txt
 *.tar.gz
 playwright-report/
 test-results/
+.vercel
+
+.vercel
